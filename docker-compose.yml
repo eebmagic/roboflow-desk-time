@@ -1,0 +1,7 @@
+services:
+    roboflow:
+        image: roboflow/roboflow-inference-server-cpu
+        ports:
+            - "9001:9001"
+        environment:
+            - METRICS_ENABLED=false

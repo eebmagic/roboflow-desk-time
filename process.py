@@ -17,6 +17,12 @@ API_KEY = os.getenv("ROBOFLOW_API_KEY")
 IMAGE_DIR = 'images'
 OUTPUT_DIR = 'outputs'
 
+CLIENT = InferenceHTTPClient(
+    # api_url="https://serverless.roboflow.com",
+    api_url="http://localhost:9001",
+    api_key=API_KEY
+)
+
 def should_discard_image(image_path, std_thresh=15):
     '''
     Some of the images are taken in the dark at night, these should not be processed.
@@ -59,8 +65,10 @@ assert len(imageSet) == len(images)
 outputSet = set(outputs)
 assert len(outputSet) == len(outputs)
 
+TRUNCATE = 50
 imagesToProcess = sorted(list(imageSet - outputSet))
-imagesToProcess = sorted(list(imageSet - outputSet))[:5]
+# imagesToProcess = sorted(list(imageSet - outputSet))
+imagesToProcess = sorted(list(imageSet - outputSet))[:TRUNCATE]
 print('\nImages to process:\t', len(imagesToProcess), imagesToProcess[:5])
 
 
@@ -80,7 +88,8 @@ print('\nImages to process:\t', len(imagesToProcess), imagesToProcess[:5])
 ## Use a worker pool to evaluate all the image so we can ignore (almost) completely black images from at night
 def process_image(image):
     '''
-    Worker function for the pool.
+    Worker function for the intial evalutation pool.
+    Checks if an image is mostly black (nighttime) and should be discarded.
     '''
     try:
         path = f'{IMAGE_DIR}/{image}.jpg'
@@ -110,6 +119,7 @@ with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for img in imagesToProcess
     }
 
+    print(f'\nEvaluating images to remove night images ({max_workers} workers):')
     for future in tqdm(as_completed(futures), total=len(futures)):
         img, status, result = future.result()
         thread_results[status if status in thread_results else 'errors'][img] = result
@@ -129,7 +139,7 @@ BLACK_IMAGE_PAYLOAD = {
 }
 
 shouldDiscardCount = sum(thread_results['success'].values())
-print('Total number of images to discard: ', shouldDiscardCount)
+print('\nTotal number of images to discard: ', shouldDiscardCount)
 
 discardWrites = 0
 requestImages = []
@@ -148,40 +158,62 @@ for img, shouldDiscard in thread_results['success'].items():
 print(f'Wrote output files for {discardWrites} / {shouldDiscardCount} of the dark images')
 
 # Connect to workflow
-API_KEY = os.getenv("ROBOFLOW_API_KEY")
-client = InferenceHTTPClient(
-    # api_url="https://serverless.roboflow.com",
-    api_url="http://localhost:9001",
-    api_key=API_KEY
-)
 
-batchSize = 10
-batches = math.ceil(len(requestImages) / batchSize)
-for i in range(batches):
-    start, stop = i*batchSize, (i+1)*batchSize
-    batch = requestImages[start:stop]
+def process_roboflow(image, client):
+    '''
+    Worker function for the Roboflow API call pool.
+    Makes a request to the server (running in local docker container) for each image.
+    '''
+    try:
+        imagePath = f'{IMAGE_DIR}/{image}.jpg'
+        result = client.run_workflow(
+            workspace_name="experiments-zmzdu",
+            workflow_id="desk-time",
+            images={
+                "image": imagePath,
+            },
+            use_cache=True
+        )
 
-    batch = {img: f'{IMAGE_DIR}/{img}.jpg' for img in batch}
-    imagePath = list(batch.values())[0]
+        resultPath = f'{OUTPUT_DIR}/{image}.json'
+        with open(resultPath, 'w') as file:
+            json.dump(result, file)
 
-    print(f'working with batch', batch)
+        return imagePath, 'success', f'Wrote to file: {resultPath}'
+    except Exception as e:
+        return imagePath, 'error', str(e)
 
-    result = client.run_workflow(
-        workspace_name="experiments-zmzdu",
-        workflow_id="desk-time",
-        images={
-            "image": imagePath, # Path to your image file
-        },
-        use_cache=True # Speeds up repeated requests
-    )
 
-    # 4. Get your results
-    print(result)
+'''
+FOR 50 IMAGES (through docker container):
+ 1 worker  | 1:55
+ 5 workers | 0:42
+10 workers | 0:52
+20 workers | 0:54
+'''
+robo_max_workers = 10
+robo_thread_results = {
+    'success': {},
+    'skipped': {},
+    'errors': {},
+}
 
-    resultPath = f'{OUTPUT_DIR}/{imagePath}.json'
-    with open(resultPath, 'w') as file:
-        json.dump(result, resultPath)
+with ThreadPoolExecutor(max_workers=robo_max_workers) as executor:
+    futures = {
+        executor.submit(process_roboflow, img, CLIENT): img
+        for img in requestImages
+    }
 
-    break
+    print(f'\nSending inference requests to Roboflow server ({robo_max_workers} workers):')
+    for future in tqdm(as_completed(futures), total=len(futures)):
+        img, status, result = future.result()
+        robo_thread_results[status if status in thread_results else 'errors'][img] = result
+        if status == 'error':
+            print(f'Error processing image: {img}: {result}')
 
-print('Finished request loop')
+print(f"\nRoboflow call pool complete!")
+print(f"Success: {len(robo_thread_results['success'])}")
+print(f"Skipped: {len(robo_thread_results['skipped'])}")
+print(f"Errors: {len(robo_thread_results['errors'])}")
+
+print('\nDONE!')
