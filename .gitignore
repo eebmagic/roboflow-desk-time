@@ -1,6 +1,7 @@
 .env
 images/*
 outputs/*
+.DS_Store
 
 .ipynb_checkpoints
 

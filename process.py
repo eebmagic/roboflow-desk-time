@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-import math
 import json
 import os
 
@@ -65,10 +64,8 @@ assert len(imageSet) == len(images)
 outputSet = set(outputs)
 assert len(outputSet) == len(outputs)
 
-TRUNCATE = 50
 imagesToProcess = sorted(list(imageSet - outputSet))
-# imagesToProcess = sorted(list(imageSet - outputSet))
-imagesToProcess = sorted(list(imageSet - outputSet))[:TRUNCATE]
+imagesToProcess = sorted(list(imageSet - outputSet))
 print('\nImages to process:\t', len(imagesToProcess), imagesToProcess[:5])
 
 
