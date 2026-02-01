@@ -213,6 +213,10 @@
                 <div class="stat-label">Total Hours</div>
             </div>
             <div class="stat-card">
+                <div class="stat-value" id="totalSamples">0</div>
+                <div class="stat-label">Position Samples</div>
+            </div>
+            <div class="stat-card">
                 <div class="stat-value" id="computerPercent">0%</div>
                 <div class="stat-label">At Computer</div>
             </div>
@@ -458,7 +462,16 @@
             const avgSession = sessions.length > 0 ? (sessions.reduce((a,b) => a+b, 0) / sessions.length * 15).toFixed(0) : 0;
             const longestSession = sessions.length > 0 ? (Math.max(...sessions) * 15).toFixed(0) : 0;
 
+            let totalSamples = 0;
+            Object.entries(filteredData).forEach(([key, value]) => {
+                console.log('working with value: ', value)
+                if (value.positions?.length > 0) {
+                    totalSamples += value.total_samples;
+                }
+            })
+
             document.getElementById('totalHours').textContent = totalHours;
+            document.getElementById('totalSamples').textContent = totalSamples;
             document.getElementById('computerPercent').textContent = computerPercent + '%';
             document.getElementById('inRoomPercent').textContent = inRoomPercent + '%';
             document.getElementById('avgSession').textContent = avgSession + 'min';
@@ -781,7 +794,7 @@
                                     const pixelY = yScale.getPixelForValue(imgData.y);
 
                                     // Draw image centered at position
-                                    ctx.globalAlpha = 0.7;
+                                    ctx.globalAlpha = 1.0;
                                     ctx.drawImage(
                                         imgData.image,
                                         pixelX - imgWidth / 2,
@@ -812,7 +825,9 @@
                                 time: timestamp,
                                 timebin: timebin,
                                 image: null,
-                                imageData: pos.image
+                                imageData: pos.image,
+                                is_at_desk: pos.is_at_desk || false,
+                                is_facing_monitor: pos.is_facing_monitor || false
                             };
 
                             // If there's an image, load it
@@ -871,6 +886,34 @@
             window.animatedIndices = new Set();
             window.animatedImages = []; // Store images to display
 
+            // Split positions into two datasets based on flags
+            const atComputerPositions = [];
+            const notAtComputerPositions = [];
+
+            positionTimeline.forEach((p, index) => {
+                const point = {
+                    x: p.x,
+                    y: p.y,
+                    timebin: p.timebin,
+                    originalIndex: index
+                };
+
+                // Debug: Log first few entries
+                if (index < 5) {
+                    console.log('Position', index, ':', {
+                        is_at_desk: p.is_at_desk,
+                        is_facing_monitor: p.is_facing_monitor,
+                        isAtComputer: p.is_at_desk || p.is_facing_monitor
+                    });
+                }
+
+                if (p.is_at_desk || p.is_facing_monitor) {
+                    atComputerPositions.push(point);
+                } else {
+                    notAtComputerPositions.push(point);
+                }
+            });
+
             charts.position = new Chart(document.getElementById('positionChart'), {
                 type: 'scatter',
                 data: {
@@ -888,31 +931,29 @@
                         {
                             label: 'Current Position',
                             data: [],
-                            backgroundColor: 'rgba(75, 192, 192, 1)',
-                            borderColor: 'rgba(255, 255, 255, 1)',
+                            backgroundColor: 'rgba(255, 255, 255, 1)',
+                            borderColor: 'rgba(0, 0, 0, 0.8)',
                             pointRadius: 8,
                             pointHoverRadius: 10,
-                            borderWidth: 3
+                            borderWidth: 2
                         },
                         {
-                            label: 'All Positions',
-                            data: positionTimeline.map(p => ({x: p.x, y: p.y, timebin: p.timebin})),
-                            backgroundColor(context) {
-                                const index = context.dataIndex;
-                                if (window.animatedIndices && window.animatedIndices.has(index)) {
-                                    return 'rgba(255, 99, 132, 0.15)'; // Translucent red for animated
-                                }
-                                return 'rgba(255, 99, 132, 0.8)'; // Solid red for unanimated
-                            },
-                            borderColor(context) {
-                                const index = context.dataIndex;
-                                if (window.animatedIndices && window.animatedIndices.has(index)) {
-                                    return 'rgba(255, 99, 132, 0.3)'; // Translucent red for animated
-                                }
-                                return 'rgba(255, 99, 132, 1)'; // Solid red for unanimated
-                            },
-                            pointRadius: 2,
-                            pointHoverRadius: 4
+                            label: 'At Computer',
+                            data: atComputerPositions,
+                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Not At Computer',
+                            data: notAtComputerPositions,
+                            backgroundColor: 'rgba(180, 40, 60, 0.7)',
+                            borderColor: 'rgba(139, 0, 0, 1)',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            borderWidth: 1
                         }
                     ]
                 },
@@ -948,6 +989,7 @@
                         tooltip: {
                             callbacks: {
                                 title(context) {
+                                    console.log('Working with tooltip context:', context);
                                     const dataPoint = context[0].raw;
                                     if (dataPoint && dataPoint.timebin) {
                                         const date = parseTimebin(dataPoint.timebin);
@@ -959,7 +1001,23 @@
                                 },
                                 label(context) {
                                     const dataPoint = context.raw;
-                                    return `Position: (${dataPoint.x.toFixed(0)}, ${dataPoint.y.toFixed(0)})`;
+
+                                    // Get full position data from timeline if available
+                                    let fullData = dataPoint;
+                                    if (dataPoint.originalIndex !== undefined && window.positionTimeline) {
+                                        fullData = window.positionTimeline[dataPoint.originalIndex];
+                                    }
+
+                                    // Create a copy without the image and timebin fields
+                                    const dataWithoutImage = {...fullData};
+                                    if (dataWithoutImage.time instanceof Date) {
+                                        dataWithoutImage.time = dataWithoutImage.time.toISOString();
+                                    }
+                                    delete dataWithoutImage.image;
+                                    delete dataWithoutImage.imageData;
+                                    delete dataWithoutImage.timebin;
+
+                                    return JSON.stringify(dataWithoutImage, null, 2);
                                 }
                             }
                         }
