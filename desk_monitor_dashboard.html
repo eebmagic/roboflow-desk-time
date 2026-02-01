@@ -479,10 +479,11 @@
                 button.textContent = '▶ Play';
             }
 
-            // Clear animated indices
+            // Clear animated indices and images
             if (window.animatedIndices) {
                 window.animatedIndices.clear();
             }
+            window.animatedImages = [];
 
             // Destroy existing charts using Chart.js registry
             const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'positionChart', 'hourlyChart'];
@@ -744,37 +745,119 @@
             const backgroundImagePlugin = {
                 id: 'backgroundImage',
                 beforeDraw: (chart) => {
-                    if (backgroundImage && chart.canvas.id === 'positionChart') {
+                    if (chart.canvas.id === 'positionChart') {
                         const ctx = chart.ctx;
                         const chartArea = chart.chartArea;
 
-                        ctx.save();
-                        ctx.globalAlpha = 0.5; // Make image semi-transparent
-                        ctx.drawImage(
-                            backgroundImage,
-                            chartArea.left,
-                            chartArea.top,
-                            chartArea.right - chartArea.left,
-                            chartArea.bottom - chartArea.top
-                        );
-                        ctx.restore();
+                        // Draw apartment background
+                        if (backgroundImage) {
+                            ctx.save();
+                            ctx.globalAlpha = 0.5; // Make image semi-transparent
+                            ctx.drawImage(
+                                backgroundImage,
+                                chartArea.left,
+                                chartArea.top,
+                                chartArea.right - chartArea.left,
+                                chartArea.bottom - chartArea.top
+                            );
+                            ctx.restore();
+                        }
+
+                        // Draw animated position images
+                        if (window.animatedImages && window.animatedImages.length > 0) {
+                            ctx.save();
+
+                            // Get scale factors
+                            const xScale = chart.scales.x;
+                            const yScale = chart.scales.y;
+
+                            window.animatedImages.forEach(imgData => {
+                                if (imgData.image) {
+                                    const imgWidth = 80;
+                                    const imgHeight = 80;
+
+                                    // Convert data coordinates to pixel coordinates
+                                    const pixelX = xScale.getPixelForValue(imgData.x);
+                                    const pixelY = yScale.getPixelForValue(imgData.y);
+
+                                    // Draw image centered at position
+                                    ctx.globalAlpha = 0.7;
+                                    ctx.drawImage(
+                                        imgData.image,
+                                        pixelX - imgWidth / 2,
+                                        pixelY - imgHeight / 2,
+                                        imgWidth,
+                                        imgHeight
+                                    );
+                                }
+                            });
+
+                            ctx.restore();
+                        }
                     }
                 }
             };
 
-            // Build position timeline with timestamps
+            // Build position timeline with timestamps and images
             const positionTimeline = [];
+
             sortedData.forEach(([timebin, value]) => {
                 const timestamp = parseTimebin(timebin);
                 if (timestamp && value.positions && Array.isArray(value.positions)) {
                     value.positions.forEach(pos => {
                         if (pos.x !== undefined && pos.y !== undefined) {
-                            positionTimeline.push({
+                            const entry = {
                                 x: pos.x,
                                 y: pos.y,
                                 time: timestamp,
-                                timebin: timebin
-                            });
+                                timebin: timebin,
+                                image: null,
+                                imageData: pos.image
+                            };
+
+                            // If there's an image, load it
+                            if (pos.image) {
+                                // Handle different image data types
+                                let imageSrc = null;
+                                if (typeof pos.image === 'string') {
+                                    // String - could be base64 or URL
+                                    if (pos.image.startsWith('data:image')) {
+                                        // Already has data URI prefix
+                                        imageSrc = pos.image;
+                                    } else if (pos.image.startsWith('http://') || pos.image.startsWith('https://')) {
+                                        // URL
+                                        imageSrc = pos.image;
+                                    } else {
+                                        // Assume it's raw base64 data
+                                        // Check if it starts with common image signatures
+                                        if (pos.image.startsWith('/9j/') || pos.image.startsWith('iVBOR')) {
+                                            const format = pos.image.startsWith('/9j/') ? 'jpeg' : 'png';
+                                            imageSrc = `data:image/${format};base64,${pos.image}`;
+                                        } else {
+                                            // Default to JPEG if we can't detect
+                                            imageSrc = `data:image/jpeg;base64,${pos.image}`;
+                                        }
+                                    }
+                                } else if (pos.image instanceof Blob || pos.image instanceof File) {
+                                    // Blob or File object
+                                    imageSrc = URL.createObjectURL(pos.image);
+                                } else if (pos.image && typeof pos.image === 'object' && pos.image.data) {
+                                    // Object with data property
+                                    imageSrc = pos.image.data;
+                                }
+
+                                // Only load if we have a valid source
+                                if (imageSrc) {
+                                    const img = new Image();
+                                    img.crossOrigin = 'anonymous';
+                                    img.onload = () => {
+                                        entry.image = img;
+                                    };
+                                    img.src = imageSrc;
+                                }
+                            }
+
+                            positionTimeline.push(entry);
                         }
                     });
                 }
@@ -786,6 +869,7 @@
             // Store timeline globally for animation controls
             window.positionTimeline = positionTimeline;
             window.animatedIndices = new Set();
+            window.animatedImages = []; // Store images to display
 
             charts.position = new Chart(document.getElementById('positionChart'), {
                 type: 'scatter',
@@ -998,11 +1082,25 @@
                 window.animatedIndices.clear();
             }
             const trail = [];
+            const images = [];
+
             for (let i = 0; i < index; i++) {
                 const pos = window.positionTimeline[i];
                 trail.push({x: pos.x, y: pos.y});
                 window.animatedIndices.add(i);
+
+                // Add image if available
+                if (pos.image) {
+                    images.push({
+                        x: pos.x,
+                        y: pos.y,
+                        image: pos.image
+                    });
+                }
             }
+
+            // Update animated images for drawing
+            window.animatedImages = images;
 
             // Update chart datasets
             charts.position.data.datasets[0].data = trail;
@@ -1046,6 +1144,7 @@
 
         function resetPositionAnimation() {
             stopPositionAnimation();
+            window.animatedImages = [];
             scrubToPosition(0);
         }
 
