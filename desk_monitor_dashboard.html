@@ -634,8 +634,8 @@
                     const state = dataMap.hasOwnProperty(key) ? dataMap[key] : -1; // -1 = no data
 
                     quarterHourData.push({
-                        x: hour,
-                        y: minute,
+                        x: hour+0.5,
+                        y: minute + 7.5,
                         v: state
                     });
                 }
@@ -663,12 +663,12 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 4,
+                    aspectRatio: 3.8,
                     scales: {
                         x: {
                             type: 'linear',
                             min: 5,
-                            max: 22,
+                            max: 23,
                             ticks: {
                                 stepSize: 1,
                                 callback: function(value) {
@@ -683,7 +683,7 @@
                         y: {
                             type: 'linear',
                             min: 0,
-                            max: 45,
+                            max: 60,
                             ticks: {
                                 stepSize: 15,
                                 callback: function(value) {
