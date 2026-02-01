@@ -716,6 +716,30 @@
                                 }
                             }
                         }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const dataIndex = elements[0].index;
+                            const clickedBlock = quarterHourData[dataIndex];
+
+                            // Find the first position that matches this time block
+                            if (window.positionTimeline) {
+                                for (let i = 0; i < window.positionTimeline.length; i++) {
+                                    const pos = window.positionTimeline[i];
+                                    const posTime = pos.time;
+                                    if (posTime) {
+                                        const posHour = posTime.getHours();
+                                        const posMinute = posTime.getMinutes();
+
+                                        // Check if position falls within this 15-minute block
+                                        if (posHour === clickedBlock.x && posMinute === clickedBlock.y) {
+                                            scrubToPosition(i);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             });
