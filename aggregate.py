@@ -98,6 +98,9 @@ for qbin, combined in tqdm(combined.items()):
         if 'predictions' in item and 'predictions' in item['predictions']:
             if len(item['predictions']['predictions']) > 0:
                 pred = item['predictions']['predictions'][0]
+                image = item['output_image']
+                if type(image) == list and len(image) > 0:
+                    image = image[0]
                 positions.append({
                     'timestamp': item['timestamp'],
                     'width': pred['width'],
@@ -105,6 +108,7 @@ for qbin, combined in tqdm(combined.items()):
                     'x': pred['x'],
                     'y': pred['y'],
                     'confidence': pred['confidence'],
+                    'image': image,
                 })
 
     simplified[qbin] = {
