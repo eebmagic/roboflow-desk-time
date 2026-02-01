@@ -251,9 +251,21 @@
                 <canvas id="heatmapChart"></canvas>
             </div>
 
-            <div class="chart-container">
+            <div class="chart-container full-width">
                 <h3 class="chart-title">Position Heatmap</h3>
-                <canvas id="positionChart"></canvas>
+                <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <button id="playPauseButton" onclick="togglePlayPause()">▶ Play</button>
+                    <button onclick="resetPositionAnimation()">⏮ Reset</button>
+                    <span id="animationProgress" style="font-size: 0.9em; color: #666; margin-left: auto; min-width: 250px; text-align: right;">0 / 0</span>
+                </div>
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <label for="timelineScrubber" style="font-size: 0.9em; color: #666;">Timeline:</label>
+                    <input type="range" id="timelineScrubber" min="0" max="0" value="0"
+                           oninput="scrubToPosition(parseInt(this.value))" style="flex: 1;">
+                </div>
+                <div style="position: relative; width: 100%; max-width: 800px; margin: 0 auto;">
+                    <canvas id="positionChart"></canvas>
+                </div>
             </div>
 
             <div class="chart-container">
@@ -268,6 +280,10 @@
         let filteredData = null;
         let charts = {};
         let backgroundImage = null;
+
+        // Animation control variables
+        let currentAnimationIndex = 0;
+        let animationId = null;
 
         // Load background image
         const img = new Image();
@@ -383,12 +399,19 @@
                 return;
             }
 
-            // Filter by exact date string match (e.g., "2025-01-31")
+            // Filter by exact date string match and time range (5am - 10pm)
             filteredData = {};
             Object.entries(rawData).forEach(([timebin, value]) => {
                 const timebinDate = timebin.split('T')[0]; // Extract date part
                 if (timebinDate === selectedDateStr) {
-                    filteredData[timebin] = value;
+                    const date = parseTimebin(timebin);
+                    if (date) {
+                        const hour = date.getHours();
+                        // Only include data between 5am (5) and 10pm (22)
+                        if (hour >= 5 && hour <= 22) {
+                            filteredData[timebin] = value;
+                        }
+                    }
                 }
             });
 
@@ -443,6 +466,24 @@
         }
 
         function createCharts() {
+            // Stop any running animation
+            if (animationId) {
+                clearTimeout(animationId);
+                animationId = null;
+            }
+            currentAnimationIndex = 0;
+
+            // Reset play/pause button
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '▶ Play';
+            }
+
+            // Clear animated indices
+            if (window.animatedIndices) {
+                window.animatedIndices.clear();
+            }
+
             // Destroy existing charts using Chart.js registry
             const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'positionChart', 'hourlyChart'];
             canvasIds.forEach(id => {
@@ -648,7 +689,7 @@
                         borderColor: 'rgba(255, 255, 255, 0.5)',
                         borderWidth: 1,
                         width: ({chart}) => (chart.chartArea || {}).width / 7 - 2,
-                        height: ({chart}) => (chart.chartArea || {}).height / 24 - 2
+                        height: ({chart}) => (chart.chartArea || {}).height / 18 - 2
                     }]
                 },
                 options: {
@@ -667,8 +708,8 @@
                         },
                         y: {
                             type: 'linear',
-                            min: 0,
-                            max: 23,
+                            min: 5,
+                            max: 22,
                             ticks: {
                                 stepSize: 1
                             },
@@ -699,7 +740,7 @@
                 }
             });
 
-            // Position Scatter Plot with Background Image
+            // Position Scatter Plot with Background Image and Animation
             const backgroundImagePlugin = {
                 id: 'backgroundImage',
                 beforeDraw: (chart) => {
@@ -721,32 +762,81 @@
                 }
             };
 
-            const allPositions = [];
+            // Build position timeline with timestamps
+            const positionTimeline = [];
             sortedData.forEach(([timebin, value]) => {
-                if (value.positions && Array.isArray(value.positions)) {
+                const timestamp = parseTimebin(timebin);
+                if (timestamp && value.positions && Array.isArray(value.positions)) {
                     value.positions.forEach(pos => {
                         if (pos.x !== undefined && pos.y !== undefined) {
-                            allPositions.push({x: pos.x, y: pos.y, timebin: timebin});
+                            positionTimeline.push({
+                                x: pos.x,
+                                y: pos.y,
+                                time: timestamp,
+                                timebin: timebin
+                            });
                         }
                     });
                 }
             });
 
+            // Sort by time
+            positionTimeline.sort((a, b) => a.time - b.time);
+
+            // Store timeline globally for animation controls
+            window.positionTimeline = positionTimeline;
+            window.animatedIndices = new Set();
+
             charts.position = new Chart(document.getElementById('positionChart'), {
                 type: 'scatter',
                 data: {
-                    datasets: [{
-                        label: 'Position in Frame',
-                        data: allPositions,
-                        backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                        borderColor: 'rgba(255, 99, 132, 1)',
-                        pointRadius: 3,
-                        pointHoverRadius: 5
-                    }]
+                    datasets: [
+                        {
+                            label: 'Trail',
+                            data: [],
+                            backgroundColor: 'rgba(255, 99, 132, 0.3)',
+                            borderColor: 'rgba(255, 99, 132, 0.5)',
+                            pointRadius: 2,
+                            showLine: true,
+                            tension: 0.4,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Current Position',
+                            data: [],
+                            backgroundColor: 'rgba(75, 192, 192, 1)',
+                            borderColor: 'rgba(255, 255, 255, 1)',
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            borderWidth: 3
+                        },
+                        {
+                            label: 'All Positions',
+                            data: positionTimeline.map(p => ({x: p.x, y: p.y, timebin: p.timebin})),
+                            backgroundColor(context) {
+                                const index = context.dataIndex;
+                                if (window.animatedIndices && window.animatedIndices.has(index)) {
+                                    return 'rgba(255, 99, 132, 0.15)'; // Translucent red for animated
+                                }
+                                return 'rgba(255, 99, 132, 0.8)'; // Solid red for unanimated
+                            },
+                            borderColor(context) {
+                                const index = context.dataIndex;
+                                if (window.animatedIndices && window.animatedIndices.has(index)) {
+                                    return 'rgba(255, 99, 132, 0.3)'; // Translucent red for animated
+                                }
+                                return 'rgba(255, 99, 132, 1)'; // Solid red for unanimated
+                            },
+                            pointRadius: 2,
+                            pointHoverRadius: 4
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    aspectRatio: 1280 / 720,
+                    animation: false,
                     scales: {
                         x: {
                             min: 0,
@@ -768,15 +858,18 @@
                     },
                     plugins: {
                         legend: {
-                            display: false
+                            display: true,
+                            position: 'bottom'
                         },
                         tooltip: {
                             callbacks: {
                                 title(context) {
                                     const dataPoint = context[0].raw;
-                                    if (dataPoint.timebin) {
+                                    if (dataPoint && dataPoint.timebin) {
                                         const date = parseTimebin(dataPoint.timebin);
-                                        return date.toLocaleString();
+                                        if (date) {
+                                            return date.toLocaleString();
+                                        }
                                     }
                                     return '';
                                 },
@@ -791,19 +884,30 @@
                 plugins: [backgroundImagePlugin]
             });
 
-            // Hourly Activity Pattern
-            const hourlyData = Array(24).fill(0);
+            // Update progress display and scrubber
+            document.getElementById('animationProgress').textContent = `0 / ${positionTimeline.length}`;
+            const scrubber = document.getElementById('timelineScrubber');
+            if (scrubber) {
+                scrubber.max = positionTimeline.length;
+                scrubber.value = 0;
+            }
+
+            // Hourly Activity Pattern (5am - 10pm only)
+            const hourlyData = Array(18).fill(0); // 18 hours from 5 to 22
             sortedData.forEach(([timebin, value]) => {
-                const hour = parseTimebin(timebin).getHours();
-                if (value.was_at_desk) {
-                    hourlyData[hour]++;
+                const date = parseTimebin(timebin);
+                if (date) {
+                    const hour = date.getHours();
+                    if (hour >= 5 && hour <= 22 && value.was_at_desk) {
+                        hourlyData[hour - 5]++; // Offset by 5 to map to array index
+                    }
                 }
             });
 
             charts.hourly = new Chart(document.getElementById('hourlyChart'), {
                 type: 'bar',
                 data: {
-                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                    labels: Array.from({length: 18}, (_, i) => `${i + 5}:00`), // 5:00 to 22:00
                     datasets: [{
                         label: 'Times At Computer',
                         data: hourlyData,
@@ -832,6 +936,117 @@
                     }
                 }
             });
+        }
+
+        function togglePlayPause() {
+            if (animationId) {
+                // Currently playing, so pause
+                stopPositionAnimation();
+            } else {
+                // Currently paused, so play
+                startPositionAnimation();
+            }
+        }
+
+        function startPositionAnimation() {
+            if (!window.positionTimeline || window.positionTimeline.length === 0) {
+                showError('No position data available to animate');
+                return;
+            }
+
+            if (animationId) {
+                // Already running
+                return;
+            }
+
+            // Update button to show pause state
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '⏸ Pause';
+            }
+
+            animatePosition();
+        }
+
+        function animatePosition() {
+            if (currentAnimationIndex < window.positionTimeline.length) {
+                scrubToPosition(currentAnimationIndex);
+                currentAnimationIndex++;
+                animationId = setTimeout(animatePosition, 50); // 50ms frame rate
+            } else {
+                // Animation complete
+                animationId = null;
+                // Update button back to play state
+                const button = document.getElementById('playPauseButton');
+                if (button) {
+                    button.textContent = '▶ Play';
+                }
+            }
+        }
+
+        function scrubToPosition(index) {
+            if (!window.positionTimeline || window.positionTimeline.length === 0) return;
+
+            // Clamp index to valid range
+            index = Math.max(0, Math.min(index, window.positionTimeline.length));
+
+            // Update current animation index
+            currentAnimationIndex = index;
+
+            // Clear animated indices and rebuild for positions up to index
+            if (window.animatedIndices) {
+                window.animatedIndices.clear();
+            }
+            const trail = [];
+            for (let i = 0; i < index; i++) {
+                const pos = window.positionTimeline[i];
+                trail.push({x: pos.x, y: pos.y});
+                window.animatedIndices.add(i);
+            }
+
+            // Update chart datasets
+            charts.position.data.datasets[0].data = trail;
+
+            // Update current position marker
+            if (index > 0) {
+                const currentPos = window.positionTimeline[index - 1];
+                charts.position.data.datasets[1].data = [{x: currentPos.x, y: currentPos.y, timebin: currentPos.timebin}];
+
+                // Update progress display with timestamp
+                const timestamp = currentPos.time ? currentPos.time.toLocaleString() : '';
+                document.getElementById('animationProgress').textContent =
+                    `${index} / ${window.positionTimeline.length} - ${timestamp}`;
+            } else {
+                charts.position.data.datasets[1].data = [];
+                document.getElementById('animationProgress').textContent =
+                    `0 / ${window.positionTimeline.length}`;
+            }
+
+            // Update scrubber position
+            const scrubber = document.getElementById('timelineScrubber');
+            if (scrubber) {
+                scrubber.value = index;
+            }
+
+            // Update chart without animation
+            charts.position.update('none');
+        }
+
+        function stopPositionAnimation() {
+            if (animationId) {
+                clearTimeout(animationId);
+                animationId = null;
+            }
+            // Update button to show play state
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '▶ Play';
+            }
+        }
+
+        function resetPositionAnimation() {
+            stopPositionAnimation();
+            scrubToPosition(0);
         }
 
         function showError(message) {
