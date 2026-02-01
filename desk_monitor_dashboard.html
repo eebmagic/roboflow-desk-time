@@ -246,11 +246,6 @@
             </div>
 
             <div class="chart-container full-width">
-                <h3 class="chart-title">Activity Heatmap (Hour by Day)</h3>
-                <canvas id="heatmapChart"></canvas>
-            </div>
-
-            <div class="chart-container full-width">
                 <h3 class="chart-title">15-Minute Activity Blocks</h3>
                 <canvas id="quarterHourChart"></canvas>
             </div>
@@ -494,7 +489,7 @@
             window.animatedImages = [];
 
             // Destroy existing charts using Chart.js registry
-            const canvasIds = ['lineChart', 'pieChart', 'heatmapChart', 'quarterHourChart', 'positionChart'];
+            const canvasIds = ['lineChart', 'pieChart', 'quarterHourChart', 'positionChart'];
             canvasIds.forEach(id => {
                 const existingChart = Chart.getChart(id);
                 if (existingChart) {
@@ -608,94 +603,6 @@
                     plugins: {
                         legend: {
                             position: 'bottom'
-                        }
-                    }
-                }
-            });
-
-            // Heatmap - Activity by Hour and Day
-            const heatmapData = [];
-            sortedData.forEach(([timebin, value]) => {
-                const date = parseTimebin(timebin);
-                if (!date) return; // Skip invalid dates
-
-                let state = 0; // Away
-                if (value.was_at_desk) {
-                    state = 2; // At Computer
-                } else if (value.positions && value.positions.length > 0) {
-                    state = 1; // In Room
-                }
-
-                // Use original date string from timebin to avoid timezone issues
-                const dateStr = timebin.split('T')[0];
-                heatmapData.push({
-                    x: dateStr,
-                    y: date.getHours(),
-                    v: state
-                });
-            });
-
-            charts.heatmap = new Chart(document.getElementById('heatmapChart'), {
-                type: 'matrix',
-                data: {
-                    datasets: [{
-                        label: 'Activity Level',
-                        data: heatmapData,
-                        backgroundColor(context) {
-                            const value = context.dataset.data[context.dataIndex].v;
-                            if (value === 2) return 'rgba(102, 126, 234, 0.8)'; // At Computer
-                            if (value === 1) return 'rgba(255, 205, 86, 0.7)'; // In Room
-                            return 'rgba(200, 200, 200, 0.3)'; // Away
-                        },
-                        borderColor: 'rgba(255, 255, 255, 0.5)',
-                        borderWidth: 1,
-                        width: ({chart}) => (chart.chartArea || {}).width / 7 - 2,
-                        height: ({chart}) => (chart.chartArea || {}).height / 18 - 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            },
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            }
-                        },
-                        y: {
-                            type: 'linear',
-                            min: 5,
-                            max: 22,
-                            ticks: {
-                                stepSize: 1
-                            },
-                            title: {
-                                display: true,
-                                text: 'Hour of Day'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title() {
-                                    return '';
-                                },
-                                label(context) {
-                                    const v = context.dataset.data[context.dataIndex];
-                                    const status = v.v === 2 ? 'At Computer' :
-                                                  v.v === 1 ? 'In Room' : 'Away';
-                                    return `${v.x} ${v.y}:00 - ${status}`;
-                                }
-                            }
                         }
                     }
                 }
