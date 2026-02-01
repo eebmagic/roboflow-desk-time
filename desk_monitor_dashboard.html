@@ -256,6 +256,11 @@
             </div>
 
             <div class="chart-container full-width">
+                <h3 class="chart-title">15-Minute Activity Blocks</h3>
+                <canvas id="quarterHourChart"></canvas>
+            </div>
+
+            <div class="chart-container full-width">
                 <h3 class="chart-title">Position Heatmap</h3>
                 <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <button id="playPauseButton" onclick="togglePlayPause()">▶ Play</button>
@@ -499,7 +504,7 @@
             window.animatedImages = [];
 
             // Destroy existing charts using Chart.js registry
-            const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'positionChart', 'hourlyChart'];
+            const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'quarterHourChart', 'positionChart', 'hourlyChart'];
             canvasIds.forEach(id => {
                 const existingChart = Chart.getChart(id);
                 if (existingChart) {
@@ -628,6 +633,11 @@
             });
 
             // Pie Chart - Activity Distribution
+            // Calculate total possible 15-minute blocks (5am to 10pm = 18 hours * 4 blocks/hour = 72 blocks)
+            const totalPossibleBlocks = 18 * 4;
+            const actualDataCount = sortedData.length;
+            const noDataCount = totalPossibleBlocks - actualDataCount;
+
             const atComputerCount = sortedData.filter(([, v]) => v.was_at_desk).length;
             const inRoomCount = sortedData.filter(([, v]) =>
                 !v.was_at_desk && v.positions && v.positions.length > 0
@@ -639,18 +649,20 @@
             charts.pie = new Chart(document.getElementById('pieChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['At Computer', 'In Room', 'Away'],
+                    labels: ['At Computer', 'In Room', 'Away', 'No Data'],
                     datasets: [{
-                        data: [atComputerCount, inRoomCount, awayCount],
+                        data: [atComputerCount, inRoomCount, awayCount, noDataCount],
                         backgroundColor: [
                             'rgba(102, 126, 234, 0.8)',
                             'rgba(255, 205, 86, 0.8)',
-                            'rgba(200, 200, 200, 0.8)'
+                            'rgba(200, 200, 200, 0.8)',
+                            'rgba(100, 100, 100, 0.5)'
                         ],
                         borderColor: [
                             'rgb(102, 126, 234)',
                             'rgb(255, 205, 86)',
-                            'rgb(200, 200, 200)'
+                            'rgb(200, 200, 200)',
+                            'rgb(100, 100, 100)'
                         ],
                         borderWidth: 2
                     }]
@@ -747,6 +759,121 @@
                                     const status = v.v === 2 ? 'At Computer' :
                                                   v.v === 1 ? 'In Room' : 'Away';
                                     return `${v.x} ${v.y}:00 - ${status}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 15-Minute Activity Blocks Chart
+            // Create a map of all existing data
+            const dataMap = {};
+            sortedData.forEach(([timebin, value]) => {
+                const date = parseTimebin(timebin);
+                if (!date) return;
+
+                const hour = date.getHours();
+                const minute = date.getMinutes();
+                const key = `${hour}-${minute}`;
+
+                let state = 0; // Away
+                if (value.was_at_desk) {
+                    state = 2; // At Computer
+                } else if (value.positions && value.positions.length > 0) {
+                    state = 1; // In Room
+                }
+
+                dataMap[key] = state;
+            });
+
+            // Create all possible 15-minute blocks from 5am to 10pm
+            const quarterHourData = [];
+            for (let hour = 5; hour <= 22; hour++) {
+                for (let minute = 0; minute < 60; minute += 15) {
+                    const key = `${hour}-${minute}`;
+                    const state = dataMap.hasOwnProperty(key) ? dataMap[key] : -1; // -1 = no data
+
+                    quarterHourData.push({
+                        x: hour,
+                        y: minute,
+                        v: state
+                    });
+                }
+            }
+
+            charts.quarterHour = new Chart(document.getElementById('quarterHourChart'), {
+                type: 'matrix',
+                data: {
+                    datasets: [{
+                        label: '15-Minute Blocks',
+                        data: quarterHourData,
+                        backgroundColor(context) {
+                            const value = context.dataset.data[context.dataIndex].v;
+                            if (value === 2) return 'rgba(102, 126, 234, 0.8)'; // At Computer (Blue)
+                            if (value === 1) return 'rgba(255, 205, 86, 0.8)'; // In Room (Yellow)
+                            if (value === 0) return 'rgba(200, 200, 200, 0.3)'; // Away (Light Gray)
+                            return 'rgba(100, 100, 100, 0.5)'; // No Data (Darker Gray)
+                        },
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        borderWidth: 2,
+                        width: ({chart}) => (chart.chartArea || {}).width / 18 - 2,
+                        height: ({chart}) => (chart.chartArea || {}).height / 4 - 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 4,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 5,
+                            max: 22,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value + ':00';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Hour of Day'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            min: 0,
+                            max: 45,
+                            ticks: {
+                                stepSize: 15,
+                                callback: function(value) {
+                                    return ':' + String(value).padStart(2, '0');
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Minute'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title() {
+                                    return '';
+                                },
+                                label(context) {
+                                    const v = context.dataset.data[context.dataIndex];
+                                    const status = v.v === 2 ? 'At Computer' :
+                                                  v.v === 1 ? 'In Room' :
+                                                  v.v === 0 ? 'Away' : 'No Data';
+                                    const hourStr = String(v.x).padStart(2, '0');
+                                    const minStr = String(v.y).padStart(2, '0');
+                                    return `${hourStr}:${minStr} - ${status}`;
                                 }
                             }
                         }
