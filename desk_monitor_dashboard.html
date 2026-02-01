@@ -224,14 +224,6 @@
                 <div class="stat-value" id="inRoomPercent">0%</div>
                 <div class="stat-label">In Room</div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value" id="avgSession">0min</div>
-                <div class="stat-label">Avg Session</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value" id="longestSession">0min</div>
-                <div class="stat-label">Longest Session</div>
-            </div>
         </div>
 
         <div id="charts" class="chart-grid" style="display: none;">
@@ -449,12 +441,9 @@
             const totalHours = (totalBins * 15 / 60).toFixed(1);
             const computerPercent = ((atComputerCount / totalBins) * 100).toFixed(1);
             const inRoomPercent = ((inRoomCount / totalBins) * 100).toFixed(1);
-            const avgSession = sessions.length > 0 ? (sessions.reduce((a,b) => a+b, 0) / sessions.length * 15).toFixed(0) : 0;
-            const longestSession = sessions.length > 0 ? (Math.max(...sessions) * 15).toFixed(0) : 0;
 
             let totalSamples = 0;
             Object.entries(filteredData).forEach(([key, value]) => {
-                console.log('working with value: ', value)
                 if (value.positions?.length > 0) {
                     totalSamples += value.total_samples;
                 }
@@ -464,8 +453,6 @@
             document.getElementById('totalSamples').textContent = totalSamples;
             document.getElementById('computerPercent').textContent = computerPercent + '%';
             document.getElementById('inRoomPercent').textContent = inRoomPercent + '%';
-            document.getElementById('avgSession').textContent = avgSession + 'min';
-            document.getElementById('longestSession').textContent = longestSession + 'min';
         }
 
         function createCharts() {
@@ -603,6 +590,16 @@
                     plugins: {
                         legend: {
                             position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const hours = value * 0.25;
+                                    return `${label}: ${hours} hours`;
+                                }
+                            }
                         }
                     }
                 }
@@ -867,15 +864,6 @@
                     originalIndex: index
                 };
 
-                // Debug: Log first few entries
-                if (index < 5) {
-                    console.log('Position', index, ':', {
-                        is_at_desk: p.is_at_desk,
-                        is_facing_monitor: p.is_facing_monitor,
-                        isAtComputer: p.is_at_desk || p.is_facing_monitor
-                    });
-                }
-
                 if (p.is_at_desk || p.is_facing_monitor) {
                     atComputerPositions.push(point);
                 } else {
@@ -958,7 +946,6 @@
                         tooltip: {
                             callbacks: {
                                 title(context) {
-                                    console.log('Working with tooltip context:', context);
                                     const dataPoint = context[0].raw;
                                     if (dataPoint && dataPoint.timebin) {
                                         const date = parseTimebin(dataPoint.timebin);
