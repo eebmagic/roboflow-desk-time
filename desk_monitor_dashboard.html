@@ -235,11 +235,6 @@
         </div>
 
         <div id="charts" class="chart-grid" style="display: none;">
-            <div class="chart-container full-width">
-                <h3 class="chart-title">Timeline - Room & Computer Activity</h3>
-                <canvas id="timelineChart"></canvas>
-            </div>
-
             <div class="chart-container">
                 <h3 class="chart-title">Daily Activity Trend</h3>
                 <canvas id="lineChart"></canvas>
@@ -275,11 +270,6 @@
                 <div style="position: relative; width: 100%; max-width: 800px; margin: 0 auto;">
                     <canvas id="positionChart"></canvas>
                 </div>
-            </div>
-
-            <div class="chart-container">
-                <h3 class="chart-title">Hourly Activity Pattern</h3>
-                <canvas id="hourlyChart"></canvas>
             </div>
         </div>
     </div>
@@ -504,7 +494,7 @@
             window.animatedImages = [];
 
             // Destroy existing charts using Chart.js registry
-            const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'quarterHourChart', 'positionChart', 'hourlyChart'];
+            const canvasIds = ['lineChart', 'pieChart', 'heatmapChart', 'quarterHourChart', 'positionChart'];
             canvasIds.forEach(id => {
                 const existingChart = Chart.getChart(id);
                 if (existingChart) {
@@ -529,61 +519,6 @@
             const inRoomData = sortedData.map(([, value]) =>
                 !value.was_at_desk && value.positions && value.positions.length > 0 ? 1 : 0
             );
-
-            // Timeline Chart
-            charts.timeline = new Chart(document.getElementById('timelineChart'), {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'At Computer',
-                            data: atComputerData,
-                            backgroundColor: 'rgba(102, 126, 234, 0.7)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'In Room',
-                            data: inRoomData,
-                            backgroundColor: 'rgba(255, 205, 86, 0.7)',
-                            borderColor: 'rgba(255, 205, 86, 1)',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'hour',
-                                displayFormats: {
-                                    hour: 'MMM d, HH:mm'
-                                }
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            max: 1,
-                            ticks: {
-                                stepSize: 1,
-                                callback: function(value) {
-                                    return value === 1 ? 'Yes' : 'No';
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
-                    }
-                }
-            });
 
             // Line Chart - Daily Trend
             charts.line = new Chart(document.getElementById('lineChart'), {
@@ -1160,51 +1095,6 @@
                 scrubber.max = positionTimeline.length;
                 scrubber.value = 0;
             }
-
-            // Hourly Activity Pattern (5am - 10pm only)
-            const hourlyData = Array(18).fill(0); // 18 hours from 5 to 22
-            sortedData.forEach(([timebin, value]) => {
-                const date = parseTimebin(timebin);
-                if (date) {
-                    const hour = date.getHours();
-                    if (hour >= 5 && hour <= 22 && value.was_at_desk) {
-                        hourlyData[hour - 5]++; // Offset by 5 to map to array index
-                    }
-                }
-            });
-
-            charts.hourly = new Chart(document.getElementById('hourlyChart'), {
-                type: 'bar',
-                data: {
-                    labels: Array.from({length: 18}, (_, i) => `${i + 5}:00`), // 5:00 to 22:00
-                    datasets: [{
-                        label: 'Times At Computer',
-                        data: hourlyData,
-                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Count'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Hour of Day'
-                            }
-                        }
-                    }
-                }
-            });
         }
 
         function togglePlayPause() {
