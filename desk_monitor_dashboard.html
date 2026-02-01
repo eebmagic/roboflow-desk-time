@@ -636,7 +636,9 @@
                     quarterHourData.push({
                         x: hour+0.5,
                         y: minute + 7.5,
-                        v: state
+                        v: state,
+                        originalHour: hour,
+                        originalMinute: minute
                     });
                 }
             }
@@ -710,8 +712,8 @@
                                     const status = v.v === 2 ? 'At Computer' :
                                                   v.v === 1 ? 'In Room' :
                                                   v.v === 0 ? 'Away' : 'No Data';
-                                    const hourStr = String(v.x).padStart(2, '0');
-                                    const minStr = String(v.y).padStart(2, '0');
+                                    const hourStr = String(v.originalHour).padStart(2, '0');
+                                    const minStr = String(v.originalMinute).padStart(2, '0');
                                     return `${hourStr}:${minStr} - ${status}`;
                                 }
                             }
@@ -732,7 +734,7 @@
                                         const posMinute = posTime.getMinutes();
 
                                         // Check if position falls within this 15-minute block
-                                        if (posHour === clickedBlock.x && posMinute === clickedBlock.y) {
+                                        if (posHour === clickedBlock.originalHour && posMinute === clickedBlock.originalMinute) {
                                             scrubToPosition(i);
                                             break;
                                         }
