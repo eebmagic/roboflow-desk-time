@@ -191,33 +191,17 @@
 <body>
     <div class="container">
         <header>
-            <h1>📊 Desk & Monitor Presence Dashboard</h1>
-            <p class="subtitle">Visualize your workspace engagement patterns</p>
+            <h1>📊 Room & Computer Presence Dashboard</h1>
+            <p class="subtitle">Track computer usage and room occupancy patterns</p>
         </header>
 
         <div class="controls">
             <div class="control-group">
-                <label for="fileInput">Load Data JSON:</label>
-                <input type="file" id="fileInput" accept=".json">
-            </div>
-            <div class="control-group">
-                <label for="startDate">Start Date:</label>
-                <input type="date" id="startDate">
-            </div>
-            <div class="control-group">
-                <label for="endDate">End Date:</label>
-                <input type="date" id="endDate">
-            </div>
-            <div class="control-group">
-                <label for="chartType">Chart Style:</label>
-                <select id="chartType">
-                    <option value="all">All Charts</option>
-                    <option value="timeline">Timeline Only</option>
-                    <option value="heatmap">Heatmap Only</option>
-                    <option value="position">Position Only</option>
+                <label for="selectedDate">Select Date:</label>
+                <select id="selectedDate">
+                    <option value="">Loading...</option>
                 </select>
             </div>
-            <button onclick="applyFilters()">Apply Filters</button>
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
@@ -229,12 +213,12 @@
                 <div class="stat-label">Total Hours</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="deskPercent">0%</div>
-                <div class="stat-label">At Desk</div>
+                <div class="stat-value" id="computerPercent">0%</div>
+                <div class="stat-label">At Computer</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="monitorPercent">0%</div>
-                <div class="stat-label">Facing Monitor</div>
+                <div class="stat-value" id="inRoomPercent">0%</div>
+                <div class="stat-label">In Room</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="avgSession">0min</div>
@@ -248,17 +232,17 @@
 
         <div id="charts" class="chart-grid" style="display: none;">
             <div class="chart-container full-width">
-                <h3 class="chart-title">Timeline - Desk & Monitor Presence</h3>
+                <h3 class="chart-title">Timeline - Room & Computer Activity</h3>
                 <canvas id="timelineChart"></canvas>
             </div>
 
             <div class="chart-container">
-                <h3 class="chart-title">Daily Engagement Trend</h3>
+                <h3 class="chart-title">Daily Activity Trend</h3>
                 <canvas id="lineChart"></canvas>
             </div>
 
             <div class="chart-container">
-                <h3 class="chart-title">Engagement Distribution</h3>
+                <h3 class="chart-title">Activity Distribution</h3>
                 <canvas id="pieChart"></canvas>
             </div>
 
@@ -296,44 +280,95 @@
             }
         };
 
-        // Load data from file
-        document.getElementById('fileInput').addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
+        // Automatically load data from simplified.json on page load
+        window.addEventListener('load', function() {
             document.getElementById('loading').style.display = 'block';
             document.getElementById('error').style.display = 'none';
 
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    rawData = JSON.parse(event.target.result);
-                    filteredData = rawData;
-                    
-                    // Set date range based on data
-                    const dates = Object.keys(rawData).map(t => parseTimebin(t));
-                    const minDate = new Date(Math.min(...dates));
-                    const maxDate = new Date(Math.max(...dates));
-                    
-                    document.getElementById('startDate').value = minDate.toISOString().split('T')[0];
-                    document.getElementById('endDate').value = maxDate.toISOString().split('T')[0];
-                    
-                    updateDashboard();
+            fetch('simplified.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load simplified.json');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    rawData = data;
+
+                    // Extract unique dates from the data
+                    const dateSet = new Set();
+                    Object.keys(rawData).forEach(timebin => {
+                        if (timebin && timebin.includes('T')) {
+                            const dateStr = timebin.split('T')[0]; // Get "2025-01-31" part
+                            if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                                dateSet.add(dateStr);
+                            }
+                        }
+                    });
+
+                    // Sort dates in descending order (most recent first)
+                    const sortedDates = Array.from(dateSet).sort().reverse();
+
+                    // Populate dropdown
+                    const selectElement = document.getElementById('selectedDate');
+                    selectElement.innerHTML = '';
+                    sortedDates.forEach(date => {
+                        const option = document.createElement('option');
+                        option.value = date;
+                        // Format as "January 31, 2025"
+                        const dateObj = new Date(date + 'T00:00:00');
+                        option.textContent = dateObj.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        selectElement.appendChild(option);
+                    });
+
+                    // Set to most recent date
+                    selectElement.value = sortedDates[0];
+
+                    // Add change listener to automatically update on date selection
+                    selectElement.addEventListener('change', applyFilters);
+
+                    // Filter to show only the most recent date initially
+                    applyFilters();
+
                     document.getElementById('loading').style.display = 'none';
-                } catch (error) {
-                    showError('Error parsing JSON: ' + error.message);
+                })
+                .catch(error => {
+                    showError('Error loading data: ' + error.message);
                     document.getElementById('loading').style.display = 'none';
-                }
-            };
-            reader.readAsText(file);
+                });
         });
 
         function parseTimebin(timebin) {
-            // Convert "2025-06-21T14-15" to Date object
-            const parts = timebin.split('T');
-            const datePart = parts[0];
-            const timePart = parts[1].split('-');
-            return new Date(`${datePart}T${timePart[0]}:${timePart[1]}:00`);
+            // Convert "2025-06-21T14-15" or "2026-01-28T23-0" to Date object
+            try {
+                const parts = timebin.split('T');
+                if (parts.length !== 2) {
+                    console.error('Invalid timebin format:', timebin);
+                    return null;
+                }
+                const datePart = parts[0];
+                const timePart = parts[1].split('-');
+                if (timePart.length < 2) {
+                    console.error('Invalid time part in timebin:', timebin);
+                    return null;
+                }
+                // Pad single digit hours/minutes with leading zero
+                const hour = timePart[0].padStart(2, '0');
+                const minute = timePart[1].padStart(2, '0');
+                const date = new Date(`${datePart}T${hour}:${minute}:00`);
+                if (isNaN(date.getTime())) {
+                    console.error('Invalid date created from timebin:', timebin);
+                    return null;
+                }
+                return date;
+            } catch (e) {
+                console.error('Error parsing timebin:', timebin, e);
+                return null;
+            }
         }
 
         function applyFilters() {
@@ -342,14 +377,17 @@
                 return;
             }
 
-            const startDate = new Date(document.getElementById('startDate').value);
-            const endDate = new Date(document.getElementById('endDate').value);
-            endDate.setHours(23, 59, 59);
+            const selectedDateStr = document.getElementById('selectedDate').value;
+            if (!selectedDateStr) {
+                showError('Please select a date');
+                return;
+            }
 
+            // Filter by exact date string match (e.g., "2025-01-31")
             filteredData = {};
             Object.entries(rawData).forEach(([timebin, value]) => {
-                const date = parseTimebin(timebin);
-                if (date >= startDate && date <= endDate) {
+                const timebinDate = timebin.split('T')[0]; // Extract date part
+                if (timebinDate === selectedDateStr) {
                     filteredData[timebin] = value;
                 }
             });
@@ -359,7 +397,7 @@
 
         function updateDashboard() {
             if (!filteredData || Object.keys(filteredData).length === 0) {
-                showError('No data available for the selected date range');
+                showError('No data available for the selected date');
                 return;
             }
 
@@ -373,8 +411,8 @@
         function calculateStats() {
             const entries = Object.values(filteredData);
             const totalBins = entries.length;
-            const atDeskCount = entries.filter(e => e.was_at_desk).length;
-            const atMonitorCount = entries.filter(e => e.was_at_monitor).length;
+            const atComputerCount = entries.filter(e => e.was_at_desk).length;
+            const inRoomCount = entries.filter(e => !e.was_at_desk && e.positions && e.positions.length > 0).length;
 
             // Calculate session lengths
             let sessions = [];
@@ -392,30 +430,45 @@
             if (currentSession > 0) sessions.push(currentSession);
 
             const totalHours = (totalBins * 15 / 60).toFixed(1);
-            const deskPercent = ((atDeskCount / totalBins) * 100).toFixed(1);
-            const monitorPercent = ((atMonitorCount / totalBins) * 100).toFixed(1);
+            const computerPercent = ((atComputerCount / totalBins) * 100).toFixed(1);
+            const inRoomPercent = ((inRoomCount / totalBins) * 100).toFixed(1);
             const avgSession = sessions.length > 0 ? (sessions.reduce((a,b) => a+b, 0) / sessions.length * 15).toFixed(0) : 0;
             const longestSession = sessions.length > 0 ? (Math.max(...sessions) * 15).toFixed(0) : 0;
 
             document.getElementById('totalHours').textContent = totalHours;
-            document.getElementById('deskPercent').textContent = deskPercent + '%';
-            document.getElementById('monitorPercent').textContent = monitorPercent + '%';
+            document.getElementById('computerPercent').textContent = computerPercent + '%';
+            document.getElementById('inRoomPercent').textContent = inRoomPercent + '%';
             document.getElementById('avgSession').textContent = avgSession + 'min';
             document.getElementById('longestSession').textContent = longestSession + 'min';
         }
 
         function createCharts() {
-            // Destroy existing charts
-            Object.values(charts).forEach(chart => chart.destroy());
+            // Destroy existing charts using Chart.js registry
+            const canvasIds = ['timelineChart', 'lineChart', 'pieChart', 'heatmapChart', 'positionChart', 'hourlyChart'];
+            canvasIds.forEach(id => {
+                const existingChart = Chart.getChart(id);
+                if (existingChart) {
+                    existingChart.destroy();
+                }
+            });
             charts = {};
 
-            const sortedData = Object.entries(filteredData).sort((a, b) => 
-                parseTimebin(a[0]) - parseTimebin(b[0])
-            );
+            const sortedData = Object.entries(filteredData)
+                .filter(([timebin]) => {
+                    const date = parseTimebin(timebin);
+                    return date !== null;
+                })
+                .sort((a, b) => {
+                    const dateA = parseTimebin(a[0]);
+                    const dateB = parseTimebin(b[0]);
+                    return dateA - dateB;
+                });
 
             const labels = sortedData.map(([timebin]) => parseTimebin(timebin));
-            const atDeskData = sortedData.map(([, value]) => value.was_at_desk ? 1 : 0);
-            const atMonitorData = sortedData.map(([, value]) => value.was_at_monitor ? 1 : 0);
+            const atComputerData = sortedData.map(([, value]) => value.was_at_desk ? 1 : 0);
+            const inRoomData = sortedData.map(([, value]) =>
+                !value.was_at_desk && value.positions && value.positions.length > 0 ? 1 : 0
+            );
 
             // Timeline Chart
             charts.timeline = new Chart(document.getElementById('timelineChart'), {
@@ -424,17 +477,17 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'At Desk',
-                            data: atDeskData,
-                            backgroundColor: 'rgba(54, 162, 235, 0.7)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
+                            label: 'At Computer',
+                            data: atComputerData,
+                            backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
                             borderWidth: 1
                         },
                         {
-                            label: 'Facing Monitor',
-                            data: atMonitorData,
-                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                            borderColor: 'rgba(75, 192, 192, 1)',
+                            label: 'In Room',
+                            data: inRoomData,
+                            backgroundColor: 'rgba(255, 205, 86, 0.7)',
+                            borderColor: 'rgba(255, 205, 86, 1)',
                             borderWidth: 1
                         }
                     ]
@@ -479,18 +532,18 @@
                     labels: labels,
                     datasets: [
                         {
-                            label: 'At Desk',
-                            data: atDeskData.map(v => v * 100),
-                            borderColor: 'rgb(54, 162, 235)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            label: 'At Computer',
+                            data: atComputerData.map(v => v * 100),
+                            borderColor: 'rgb(102, 126, 234)',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
                             tension: 0.4,
                             fill: true
                         },
                         {
-                            label: 'Facing Monitor',
-                            data: atMonitorData.map(v => v * 100),
-                            borderColor: 'rgb(75, 192, 192)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            label: 'In Room',
+                            data: inRoomData.map(v => v * 100),
+                            borderColor: 'rgb(255, 205, 86)',
+                            backgroundColor: 'rgba(255, 205, 86, 0.1)',
                             tension: 0.4,
                             fill: true
                         }
@@ -519,26 +572,30 @@
                 }
             });
 
-            // Pie Chart - Engagement Distribution
-            const bothCount = sortedData.filter(([, v]) => v.was_at_desk && v.was_at_monitor).length;
-            const deskOnlyCount = sortedData.filter(([, v]) => v.was_at_desk && !v.was_at_monitor).length;
-            const neitherCount = sortedData.filter(([, v]) => !v.was_at_desk && !v.was_at_monitor).length;
+            // Pie Chart - Activity Distribution
+            const atComputerCount = sortedData.filter(([, v]) => v.was_at_desk).length;
+            const inRoomCount = sortedData.filter(([, v]) =>
+                !v.was_at_desk && v.positions && v.positions.length > 0
+            ).length;
+            const awayCount = sortedData.filter(([, v]) =>
+                !v.was_at_desk && (!v.positions || v.positions.length === 0)
+            ).length;
 
             charts.pie = new Chart(document.getElementById('pieChart'), {
                 type: 'doughnut',
                 data: {
-                    labels: ['At Desk & Facing Monitor', 'At Desk Only', 'Away'],
+                    labels: ['At Computer', 'In Room', 'Away'],
                     datasets: [{
-                        data: [bothCount, deskOnlyCount, neitherCount],
+                        data: [atComputerCount, inRoomCount, awayCount],
                         backgroundColor: [
-                            'rgba(75, 192, 192, 0.8)',
+                            'rgba(102, 126, 234, 0.8)',
                             'rgba(255, 205, 86, 0.8)',
-                            'rgba(255, 99, 132, 0.8)'
+                            'rgba(200, 200, 200, 0.8)'
                         ],
                         borderColor: [
-                            'rgb(75, 192, 192)',
+                            'rgb(102, 126, 234)',
                             'rgb(255, 205, 86)',
-                            'rgb(255, 99, 132)'
+                            'rgb(200, 200, 200)'
                         ],
                         borderWidth: 2
                     }]
@@ -558,10 +615,21 @@
             const heatmapData = [];
             sortedData.forEach(([timebin, value]) => {
                 const date = parseTimebin(timebin);
+                if (!date) return; // Skip invalid dates
+
+                let state = 0; // Away
+                if (value.was_at_desk) {
+                    state = 2; // At Computer
+                } else if (value.positions && value.positions.length > 0) {
+                    state = 1; // In Room
+                }
+
+                // Use original date string from timebin to avoid timezone issues
+                const dateStr = timebin.split('T')[0];
                 heatmapData.push({
-                    x: date.toISOString().split('T')[0],
+                    x: dateStr,
                     y: date.getHours(),
-                    v: value.was_at_desk && value.was_at_monitor ? 2 : (value.was_at_desk ? 1 : 0)
+                    v: state
                 });
             });
 
@@ -573,9 +641,9 @@
                         data: heatmapData,
                         backgroundColor(context) {
                             const value = context.dataset.data[context.dataIndex].v;
-                            if (value === 2) return 'rgba(75, 192, 192, 0.9)';
-                            if (value === 1) return 'rgba(255, 205, 86, 0.7)';
-                            return 'rgba(200, 200, 200, 0.3)';
+                            if (value === 2) return 'rgba(102, 126, 234, 0.8)'; // At Computer
+                            if (value === 1) return 'rgba(255, 205, 86, 0.7)'; // In Room
+                            return 'rgba(200, 200, 200, 0.3)'; // Away
                         },
                         borderColor: 'rgba(255, 255, 255, 0.5)',
                         borderWidth: 1,
@@ -621,8 +689,8 @@
                                 },
                                 label(context) {
                                     const v = context.dataset.data[context.dataIndex];
-                                    const status = v.v === 2 ? 'At Desk & Facing Monitor' : 
-                                                  v.v === 1 ? 'At Desk Only' : 'Away';
+                                    const status = v.v === 2 ? 'At Computer' :
+                                                  v.v === 1 ? 'In Room' : 'Away';
                                     return `${v.x} ${v.y}:00 - ${status}`;
                                 }
                             }
@@ -654,11 +722,11 @@
             };
 
             const allPositions = [];
-            sortedData.forEach(([, value]) => {
+            sortedData.forEach(([timebin, value]) => {
                 if (value.positions && Array.isArray(value.positions)) {
                     value.positions.forEach(pos => {
                         if (pos.x !== undefined && pos.y !== undefined) {
-                            allPositions.push({x: pos.x, y: pos.y});
+                            allPositions.push({x: pos.x, y: pos.y, timebin: timebin});
                         }
                     });
                 }
@@ -681,12 +749,16 @@
                     maintainAspectRatio: true,
                     scales: {
                         x: {
+                            min: 0,
+                            max: 1280,
                             title: {
                                 display: true,
                                 text: 'X Position'
                             }
                         },
                         y: {
+                            min: 0,
+                            max: 720,
                             title: {
                                 display: true,
                                 text: 'Y Position'
@@ -697,6 +769,22 @@
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title(context) {
+                                    const dataPoint = context[0].raw;
+                                    if (dataPoint.timebin) {
+                                        const date = parseTimebin(dataPoint.timebin);
+                                        return date.toLocaleString();
+                                    }
+                                    return '';
+                                },
+                                label(context) {
+                                    const dataPoint = context.raw;
+                                    return `Position: (${dataPoint.x.toFixed(0)}, ${dataPoint.y.toFixed(0)})`;
+                                }
+                            }
                         }
                     }
                 },
@@ -717,10 +805,10 @@
                 data: {
                     labels: Array.from({length: 24}, (_, i) => `${i}:00`),
                     datasets: [{
-                        label: 'Times At Desk',
+                        label: 'Times At Computer',
                         data: hourlyData,
-                        backgroundColor: 'rgba(153, 102, 255, 0.7)',
-                        borderColor: 'rgba(153, 102, 255, 1)',
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
                         borderWidth: 2
                     }]
                 },
