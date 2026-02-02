@@ -16,3 +16,24 @@ Then made an `aggregate.py` script to simplify and merge the responses into 15-m
 The `index.html` uses [Chart.js](https://www.chartjs.org/) to present a few charts and animation.
 
 You can view the dashboard at [this GitHub page](https://eebmagic.github.io/roboflow-desk-time/)
+
+
+## Exploration Notebooks
+### Find Night Images Std Value.ipynb
+My camera was taking pictures every 20s for a few random 48hr stretches. 
+As a result a lot of the images are at nighttime and are pitch-black and not even worth passing to the Roboflow workflow for processing.
+
+In this jupyter notebook I load the images and plot and histogram the stddev of pixel values.
+Then based off those two charts I picked a cutoff of $\delta = 15$ for the best threshold for what is likely a nighttime image that can be disregarded.
+
+This $\delta$ was then used in the `process.py` script which checked all the images in a thread worker pool before uploading them to the workflow endpoint.
+
+### Generate Average Room Image.ipynb
+The Roboflow workflow returns cropped images of a person in frame of the inputs.
+I wanted to use these in some sort of visual for my position over time in my apartment.
+
+Instead of using a randomly sampled image I wanted to instead use an "average" image of my room under good lighting conditions.
+
+This may have been a bad choice because the data is from two different weeks that are ~6 months apart and there have been some small changes to my room, resulting in some ghosting on the image. 
+Also there is some oversampling resulting from two days where I recorded images at a doubled rate.
+But I think the resulting image is still a little better than a single random image, so I used it as the background on the `Position Tracker` chart on the dashboard. 
