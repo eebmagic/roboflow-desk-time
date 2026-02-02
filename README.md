@@ -2,7 +2,7 @@
 
 This project processes and presents insights from a large set of of images taken from a camera setup in my apartment.
 
-It uses [this Roboflow workflow](https://app.roboflow.com/workflows/embed/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3JrZmxvd0lkIjoibmZnVW90cE9NbWhzMk83RE5QWlYiLCJ3b3Jrc3BhY2VJZCI6ImxXTWdTSHU0SjZXYUUyUllBRnlnb3prRzMwNTMiLCJ1c2VySWQiOiJsV01nU0h1NEo2V2FFMlJZQUZ5Z296a0czMDUzIiwiaWF0IjoxNzcwMDAxOTQyfQ.ugb4FzJVKtBbr8c44VmIn_4N-cnkGzVsizZ4K6VcFxY) to process all of the images. 
+It uses [this Roboflow workflow](https://app.roboflow.com/workflows/embed/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3JrZmxvd0lkIjoibmZnVW90cE9NbWhzMk83RE5QWlYiLCJ3b3Jrc3BhY2VJZCI6ImxXTWdTSHU0SjZXYUUyUllBRnlnb3prRzMwNTMiLCJ1c2VySWQiOiJsV01nU0h1NEo2V2FFMlJZQUZ5Z296a0czMDUzIiwiaWF0IjoxNzcwMDAxOTQyfQ.ugb4FzJVKtBbr8c44VmIn_4N-cnkGzVsizZ4K6VcFxY) that I made to process all of the images. 
 
 The Roboflow workflow:
 1. Takes an image as input

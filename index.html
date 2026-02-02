@@ -227,6 +227,14 @@
                 width: 28px;
                 height: 28px;
             }
+
+            .chart-container {
+                padding: 15px;
+            }
+
+            .chart-title {
+                font-size: 1.3em;
+            }
         }
     </style>
 </head>
@@ -248,9 +256,8 @@
                 <br>
                 This dashboard presents the summarized data from several days of data, generated from
                 <a href="https://app.roboflow.com/workflows/embed/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3JrZmxvd0lkIjoibmZnVW90cE9NbWhzMk83RE5QWlYiLCJ3b3Jrc3BhY2VJZCI6ImxXTWdTSHU0SjZXYUUyUllBRnlnb3prRzMwNTMiLCJ1c2VySWQiOiJsV01nU0h1NEo2V2FFMlJZQUZ5Z296a0czMDUzIiwiaWF0IjoxNzcwMDAxOTQyfQ.ugb4FzJVKtBbr8c44VmIn_4N-cnkGzVsizZ4K6VcFxY">
-                    this Roboflow workflow
-                </a>
-                .
+                    this Roboflow workflow</a>
+                that I made.
 
                 <br>
                 <br>
@@ -636,6 +643,9 @@
                 }
             });
 
+            // Detect mobile device
+            const isMobile = window.innerWidth <= 768;
+
             // 15-Minute Activity Blocks Chart
             // Create a map of all existing data
             const dataMap = {};
@@ -688,7 +698,7 @@
                             return 'rgba(100, 100, 100, 0.5)'; // No Data (Darker Gray)
                         },
                         borderColor: 'rgba(255, 255, 255, 0.5)',
-                        borderWidth: 2,
+                        borderWidth: isMobile ? 1 : 2,
                         width: ({chart}) => (chart.chartArea || {}).width / 18 - 2,
                         height: ({chart}) => (chart.chartArea || {}).height / 4 - 2
                     }]
@@ -696,21 +706,27 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 3.5,
+                    aspectRatio: isMobile ? 2.0 : 3.5,
                     scales: {
                         x: {
                             type: 'linear',
                             min: 5,
                             max: 23,
                             ticks: {
-                                stepSize: 1,
+                                stepSize: isMobile ? 2 : 1,
                                 callback: function(value) {
                                     return value + ':00';
+                                },
+                                font: {
+                                    size: isMobile ? 9 : 12
                                 }
                             },
                             title: {
                                 display: true,
-                                text: 'Hour of Day'
+                                text: 'Hour of Day',
+                                font: {
+                                    size: isMobile ? 10 : 12
+                                }
                             }
                         },
                         y: {
@@ -721,11 +737,17 @@
                                 stepSize: 15,
                                 callback: function(value) {
                                     return ':' + String(value).padStart(2, '0');
+                                },
+                                font: {
+                                    size: isMobile ? 9 : 12
                                 }
                             },
                             title: {
-                                display: true,
-                                text: 'Minute'
+                                display: !isMobile,
+                                text: 'Minute',
+                                font: {
+                                    size: isMobile ? 10 : 12
+                                }
                             }
                         }
                     },
@@ -734,6 +756,11 @@
                             display: true,
                             position: 'top',
                             labels: {
+                                font: {
+                                    size: isMobile ? 10 : 12
+                                },
+                                padding: isMobile ? 8 : 10,
+                                boxWidth: isMobile ? 12 : 15,
                                 generateLabels: function(chart) {
                                     return [
                                         {
