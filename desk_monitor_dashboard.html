@@ -269,16 +269,6 @@
         </div>
 
         <div id="charts" class="chart-grid" style="display: none;">
-            <div class="chart-container">
-                <h3 class="chart-title">Daily Activity Trend</h3>
-                <canvas id="lineChart"></canvas>
-            </div>
-
-            <div class="chart-container">
-                <h3 class="chart-title">Activity Distribution</h3>
-                <canvas id="pieChart"></canvas>
-            </div>
-
             <div class="chart-container full-width">
                 <h3 class="chart-title">15-Minute Activity Blocks</h3>
                 <p>
@@ -310,6 +300,11 @@
                 <div style="position: relative; width: 100%; max-width: 800px; margin: 0 auto;">
                     <canvas id="positionChart"></canvas>
                 </div>
+            </div>
+
+            <div class="chart-container">
+                <h3 class="chart-title">Activity Distribution</h3>
+                <canvas id="pieChart"></canvas>
             </div>
         </div>
     </div>
@@ -530,7 +525,7 @@
             window.animatedImages = [];
 
             // Destroy existing charts using Chart.js registry
-            const canvasIds = ['lineChart', 'pieChart', 'quarterHourChart', 'positionChart'];
+            const canvasIds = ['pieChart', 'quarterHourChart', 'positionChart'];
             canvasIds.forEach(id => {
                 const existingChart = Chart.getChart(id);
                 if (existingChart) {
@@ -549,59 +544,6 @@
                     const dateB = parseTimebin(b[0]);
                     return dateA - dateB;
                 });
-
-            const labels = sortedData.map(([timebin]) => parseTimebin(timebin));
-            const atComputerData = sortedData.map(([, value]) => value.was_at_desk ? 1 : 0);
-            const inRoomData = sortedData.map(([, value]) =>
-                !value.was_at_desk && value.positions && value.positions.length > 0 ? 1 : 0
-            );
-
-            // Line Chart - Daily Trend
-            charts.line = new Chart(document.getElementById('lineChart'), {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'At Computer',
-                            data: atComputerData.map(v => v * 100),
-                            borderColor: 'rgb(102, 126, 234)',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        },
-                        {
-                            label: 'In Room',
-                            data: inRoomData.map(v => v * 100),
-                            borderColor: 'rgb(255, 205, 86)',
-                            backgroundColor: 'rgba(255, 205, 86, 0.1)',
-                            tension: 0.4,
-                            fill: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day'
-                            }
-                        },
-                        y: {
-                            min: 0,
-                            max: 100,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
 
             // Pie Chart - Activity Distribution
             // Calculate total possible 15-minute blocks (5am to 10pm = 18 hours * 4 blocks/hour = 72 blocks)
