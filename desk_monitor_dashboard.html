@@ -239,6 +239,11 @@
                     <option value="">Loading...</option>
                 </select>
             </div>
+            <p>
+                These dates are when I had several hours of recorded images.
+                <br>
+                All charts are built from data between 5am and 11pm.
+            </p>
         </div>
 
         <div id="error" class="error" style="display: none;"></div>
@@ -247,18 +252,18 @@
         <div id="stats" class="stats-grid" style="display: none;">
             <div class="stat-card">
                 <div class="stat-value" id="totalHours">0</div>
-                <div class="stat-label">Total Hours</div>
+                <div class="stat-label">Total Hours Recorded</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value" id="totalSamples">0</div>
                 <div class="stat-label">Position Samples</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="computerPercent">0%</div>
+                <div class="stat-value" id="computerPercent">0h</div>
                 <div class="stat-label">At Computer</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value" id="inRoomPercent">0%</div>
+                <div class="stat-value" id="inRoomPercent">0h</div>
                 <div class="stat-label">In Room</div>
             </div>
         </div>
@@ -276,7 +281,18 @@
 
             <div class="chart-container full-width">
                 <h3 class="chart-title">15-Minute Activity Blocks</h3>
-                <canvas id="quarterHourChart"></canvas>
+                <p>
+                    These boxes represent each 15-minute chunk from 5am to 11pm.
+                    Click on one to jump to that point in the position heatmap below.
+                </p>
+                <br>
+                <p>
+                    If I was visible to the camera at all in that time period, then the cell will be colored.
+                    If I was at my computer at all in that period then it will be <b><span style="color: rgba(102, 126, 234)">blue</span></b>.
+                </p>
+                <div>
+                    <canvas id="quarterHourChart"></canvas>
+                </div>
             </div>
 
             <div class="chart-container full-width">
@@ -364,8 +380,9 @@
                         selectElement.appendChild(option);
                     });
 
-                    // Set to most recent date
-                    selectElement.value = sortedDates[0];
+                    // Set to January 28, 2026 if available, otherwise most recent date
+                    const defaultDate = '2026-01-28';
+                    selectElement.value = sortedDates.includes(defaultDate) ? defaultDate : sortedDates[0];
 
                     // Add change listener to automatically update on date selection
                     selectElement.addEventListener('change', applyFilters);
@@ -476,8 +493,8 @@
             if (currentSession > 0) sessions.push(currentSession);
 
             const totalHours = (totalBins * 15 / 60).toFixed(1);
-            const computerPercent = ((atComputerCount / totalBins) * 100).toFixed(1);
-            const inRoomPercent = ((inRoomCount / totalBins) * 100).toFixed(1);
+            const computerHours = (atComputerCount * 15 / 60).toFixed(1);
+            const inRoomHours = (inRoomCount * 15 / 60).toFixed(1);
 
             let totalSamples = 0;
             Object.entries(filteredData).forEach(([key, value]) => {
@@ -488,8 +505,8 @@
 
             document.getElementById('totalHours').textContent = totalHours;
             document.getElementById('totalSamples').textContent = totalSamples;
-            document.getElementById('computerPercent').textContent = computerPercent + '%';
-            document.getElementById('inRoomPercent').textContent = inRoomPercent + '%';
+            document.getElementById('computerPercent').textContent = computerHours + 'h';
+            document.getElementById('inRoomPercent').textContent = inRoomHours + 'h';
         }
 
         function createCharts() {
@@ -702,7 +719,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    aspectRatio: 3.8,
+                    aspectRatio: 3.5,
                     scales: {
                         x: {
                             type: 'linear',
@@ -737,7 +754,38 @@
                     },
                     plugins: {
                         legend: {
-                            display: false
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                generateLabels: function(chart) {
+                                    return [
+                                        {
+                                            text: 'At Computer',
+                                            fillStyle: 'rgba(102, 126, 234, 0.8)',
+                                            strokeStyle: 'rgba(102, 126, 234, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'In Room',
+                                            fillStyle: 'rgba(255, 205, 86, 0.8)',
+                                            strokeStyle: 'rgba(255, 205, 86, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'Away',
+                                            fillStyle: 'rgba(200, 200, 200, 0.3)',
+                                            strokeStyle: 'rgba(200, 200, 200, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'No Data',
+                                            fillStyle: 'rgba(100, 100, 100, 0.5)',
+                                            strokeStyle: 'rgba(100, 100, 100, 1)',
+                                            lineWidth: 2
+                                        }
+                                    ];
+                                }
+                            }
                         },
                         tooltip: {
                             callbacks: {
