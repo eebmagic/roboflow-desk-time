@@ -836,7 +836,11 @@
                             const xScale = chart.scales.x;
                             const yScale = chart.scales.y;
 
-                            window.animatedImages.forEach(imgData => {
+                            // Only show the last 30 images with fade effect
+                            const maxImages = 30;
+                            const imagesToShow = window.animatedImages.slice(-maxImages);
+
+                            imagesToShow.forEach((imgData, index) => {
                                 if (imgData.image) {
                                     const imgWidth = 80;
                                     const imgHeight = 80;
@@ -845,8 +849,12 @@
                                     const pixelX = xScale.getPixelForValue(imgData.x);
                                     const pixelY = yScale.getPixelForValue(imgData.y);
 
+                                    // Calculate fade: oldest = 0.1, newest = 1.0
+                                    const fadeRatio = (index + 1) / imagesToShow.length;
+                                    const opacity = 0.1 + (fadeRatio * 0.9);
+
                                     // Draw image centered at position
-                                    ctx.globalAlpha = 1.0;
+                                    ctx.globalAlpha = opacity;
                                     ctx.drawImage(
                                         imgData.image,
                                         pixelX - imgWidth / 2,
@@ -874,6 +882,8 @@
                             const entry = {
                                 x: pos.x,
                                 y: pos.y,
+                                width: pos.width,
+                                height: pos.height,
                                 time: timestamp,
                                 timebin: timebin,
                                 image: null,
@@ -938,9 +948,8 @@
             window.animatedIndices = new Set();
             window.animatedImages = []; // Store images to display
 
-            // Split positions into two datasets based on flags
-            const atComputerPositions = [];
-            const notAtComputerPositions = [];
+            // Create single dataset for all positions
+            const allPositions = [];
 
             positionTimeline.forEach((p, index) => {
                 const point = {
@@ -949,12 +958,7 @@
                     timebin: p.timebin,
                     originalIndex: index
                 };
-
-                if (p.is_at_desk || p.is_facing_monitor) {
-                    atComputerPositions.push(point);
-                } else {
-                    notAtComputerPositions.push(point);
-                }
+                allPositions.push(point);
             });
 
             charts.position = new Chart(document.getElementById('positionChart'), {
@@ -981,19 +985,10 @@
                             borderWidth: 2
                         },
                         {
-                            label: 'At Computer',
-                            data: atComputerPositions,
-                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
-                            borderColor: 'rgba(102, 126, 234, 1)',
-                            pointRadius: 3,
-                            pointHoverRadius: 5,
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Not At Computer',
-                            data: notAtComputerPositions,
-                            backgroundColor: 'rgba(180, 40, 60, 0.7)',
-                            borderColor: 'rgba(139, 0, 0, 1)',
+                            label: 'All Positions',
+                            data: allPositions,
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderColor: 'rgba(102, 126, 234, 0.2)',
                             pointRadius: 3,
                             pointHoverRadius: 5,
                             borderWidth: 1
@@ -1026,8 +1021,7 @@
                     },
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'bottom'
+                            display: false
                         },
                         tooltip: {
                             callbacks: {
@@ -1139,7 +1133,11 @@
             const trail = [];
             const images = [];
 
-            for (let i = 0; i < index; i++) {
+            // Only show last 30 points in trail
+            const maxTrailPoints = 30;
+            const startIndex = Math.max(0, index - maxTrailPoints);
+
+            for (let i = startIndex; i < index; i++) {
                 const pos = window.positionTimeline[i];
                 trail.push({x: pos.x, y: pos.y});
                 window.animatedIndices.add(i);
@@ -1149,6 +1147,8 @@
                     images.push({
                         x: pos.x,
                         y: pos.y,
+                        width: pos.width,
+                        height: pos.height,
                         image: pos.image
                     });
                 }
