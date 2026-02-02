@@ -67,6 +67,16 @@
             font-size: 1.1em;
         }
 
+        header ol {
+            margin-left: 30px !important;
+            margin-top: 10px;
+        }
+
+        header ol li {
+            color: #666;
+            font-size: 1.1em;
+        }
+
         .controls {
             background: white;
             padding: 20px;
@@ -229,7 +239,30 @@
                 </svg>
             </a>
             <h1>📊 Room & Computer Presence Dashboard</h1>
-            <p class="subtitle">Track computer usage and room occupancy patterns</p>
+            <div>
+            <p class="subtitle">
+                I have a camera setup in my living room where I can see my work desk.
+                I've been curious about how much time I actually spend at my desk in a day and wanted to quantify it from these images.
+                <br>
+                This dashboard presents the summarized data from several days of data, generated from
+                <a href="https://app.roboflow.com/workflows/embed/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3JrZmxvd0lkIjoibmZnVW90cE9NbWhzMk83RE5QWlYiLCJ3b3Jrc3BhY2VJZCI6ImxXTWdTSHU0SjZXYUUyUllBRnlnb3prRzMwNTMiLCJ1c2VySWQiOiJsV01nU0h1NEo2V2FFMlJZQUZ5Z296a0czMDUzIiwiaWF0IjoxNzcwMDAxOTQyfQ.ugb4FzJVKtBbr8c44VmIn_4N-cnkGzVsizZ4K6VcFxY">
+                    this Roboflow workflow
+                </a>
+                .
+
+                <br>
+                <br>
+                The Roboflow workflow:
+                <div>
+                    <ol>
+                        <li>Takes an image as input</li>
+                        <li>Uses the roboflow object detection model to check if a person(s) is in frame</li>
+                        <li>If a single person is present, then ask Gemini-3-flash if I'm at my desk and if I'm facing a monitor</li>
+                        <li>Return the bool flags and cropped image of myself</li>
+                    </ol>
+                </div>
+            </p>
+            </div>
         </header>
 
         <div class="controls">
@@ -273,7 +306,7 @@
                 <h3 class="chart-title">15-Minute Activity Blocks</h3>
                 <p>
                     These boxes represent each 15-minute chunk from 5am to 11pm.
-                    Click on one to jump to that point in the position heatmap below.
+                    Click on one to jump to that point in the <b>position tracker below</b>.
                 </p>
                 <br>
                 <p>
@@ -286,7 +319,7 @@
             </div>
 
             <div class="chart-container full-width">
-                <h3 class="chart-title">Position Heatmap</h3>
+                <h3 class="chart-title">Position Tracker</h3>
                 <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <button id="playPauseButton" onclick="togglePlayPause()">▶ Play</button>
                     <button onclick="resetPositionAnimation()">⏮ Reset</button>
