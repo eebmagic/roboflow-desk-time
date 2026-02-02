@@ -1037,23 +1037,10 @@
                                 },
                                 label(context) {
                                     const dataPoint = context.raw;
-
-                                    // Get full position data from timeline if available
-                                    let fullData = dataPoint;
-                                    if (dataPoint.originalIndex !== undefined && window.positionTimeline) {
-                                        fullData = window.positionTimeline[dataPoint.originalIndex];
-                                    }
-
-                                    // Create a copy without the image and timebin fields
-                                    const dataWithoutImage = {...fullData};
-                                    if (dataWithoutImage.time instanceof Date) {
-                                        dataWithoutImage.time = dataWithoutImage.time.toISOString();
-                                    }
-                                    delete dataWithoutImage.image;
-                                    delete dataWithoutImage.imageData;
-                                    delete dataWithoutImage.timebin;
-
-                                    return JSON.stringify(dataWithoutImage, null, 2);
+                                    return [
+                                        `x: ${Math.round(dataPoint.x)}`,
+                                        `y: ${Math.round(dataPoint.y)}`
+                                    ];
                                 }
                             }
                         }
