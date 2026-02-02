@@ -17,6 +17,9 @@ The `index.html` uses [Chart.js](https://www.chartjs.org/) to present a few char
 
 You can view the dashboard at [this GitHub page](https://eebmagic.github.io/roboflow-desk-time/)
 
+**Demo:**
+
+<img src="demo-recording.gif" style="width: 40em;"/>
 
 ## Exploration Notebooks
 ### Find Night Images Std Value.ipynb
