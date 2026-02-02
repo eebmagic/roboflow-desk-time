@@ -48,6 +48,12 @@ def cleanup(data, timestamp):
     
     return result
 
+# Manually determined from looking at data
+disregardedDays = [
+    '2026-01-27',
+    '2026-01-30',
+    '2026-01-31',
+]
 
 # Get all data for 15-minute windows
 combined = {}
@@ -60,6 +66,9 @@ for path in outputFiles:
 
     roundedMinute = int(minute) // 15
     qbin = f'{hour}-{roundedMinute*15}'
+
+    if day in disregardedDays:
+        continue
 
     with open(path) as file:
         data = cleanup(json.load(file), timestring)
@@ -98,6 +107,9 @@ for qbin, combined in tqdm(combined.items()):
         if 'predictions' in item and 'predictions' in item['predictions']:
             if len(item['predictions']['predictions']) > 0:
                 pred = item['predictions']['predictions'][0]
+                image = item['output_image']
+                if type(image) == list and len(image) > 0:
+                    image = image[0]
                 positions.append({
                     'timestamp': item['timestamp'],
                     'width': pred['width'],
@@ -105,14 +117,15 @@ for qbin, combined in tqdm(combined.items()):
                     'x': pred['x'],
                     'y': pred['y'],
                     'confidence': pred['confidence'],
+                    'is_at_desk': item['is_at_desk'],
+                    'image': image,
                 })
 
     simplified[qbin] = {
         'timebin': qbin,
         'total_samples': len(combined),
         'max_person_count': maxPersonCount,
-        'was_at_desk': wasAtDesk,
-        'was_at_monitor': wasAtMonitor,
+        'was_at_desk': wasAtDesk or wasAtMonitor,
         'positions': positions,
     }
 

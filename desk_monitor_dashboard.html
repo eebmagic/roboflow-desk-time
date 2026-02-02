@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desk & Monitor Presence Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .github-link {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .github-link:hover {
+            transform: scale(1.1);
+        }
+
+        .github-link svg {
+            fill: #667eea;
+            transition: fill 0.3s ease;
+        }
+
+        .github-link:hover svg {
+            fill: #5568d3;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        header ol {
+            margin-left: 30px !important;
+            margin-top: 10px;
+        }
+
+        header ol li {
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.9em;
+        }
+
+        input[type="file"],
+        input[type="date"],
+        select {
+            padding: 10px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="file"]:hover,
+        input[type="date"]:hover,
+        select:hover {
+            border-color: #667eea;
+        }
+
+        button {
+            padding: 10px 25px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 600;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.95em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .chart-container.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        canvas {
+            max-height: 400px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: white;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .github-link {
+                top: 20px;
+                right: 20px;
+            }
+
+            .github-link svg {
+                width: 28px;
+                height: 28px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <a href="https://github.com/eebmagic/roboflow-desk-time" target="_blank" rel="noopener noreferrer" class="github-link" title="View on GitHub">
+                <svg width="32" height="32" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+            </a>
+            <h1>📊 Room & Computer Presence Dashboard</h1>
+            <div>
+            <p class="subtitle">
+                I have a camera setup in my living room where I can see my work desk.
+                I've been curious about how much time I actually spend at my desk in a day and wanted to quantify it from these images.
+                <br>
+                This dashboard presents the summarized data from several days of data, generated from
+                <a href="https://app.roboflow.com/workflows/embed/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ3b3JrZmxvd0lkIjoibmZnVW90cE9NbWhzMk83RE5QWlYiLCJ3b3Jrc3BhY2VJZCI6ImxXTWdTSHU0SjZXYUUyUllBRnlnb3prRzMwNTMiLCJ1c2VySWQiOiJsV01nU0h1NEo2V2FFMlJZQUZ5Z296a0czMDUzIiwiaWF0IjoxNzcwMDAxOTQyfQ.ugb4FzJVKtBbr8c44VmIn_4N-cnkGzVsizZ4K6VcFxY">
+                    this Roboflow workflow
+                </a>
+                .
+
+                <br>
+                <br>
+                The Roboflow workflow:
+                <div>
+                    <ol>
+                        <li>Takes an image as input</li>
+                        <li>Uses the roboflow object detection model to check if a person(s) is in frame</li>
+                        <li>If a single person is present, then ask Gemini-3-flash if I'm at my desk and if I'm facing a monitor</li>
+                        <li>Return the bool flags and cropped image of myself</li>
+                    </ol>
+                </div>
+            </p>
+            </div>
+        </header>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="selectedDate">Select Date:</label>
+                <select id="selectedDate">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <p>
+                These dates are when I had several hours of recorded images.
+                <br>
+                All charts are built from data between 5am and 11pm.
+            </p>
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading data...</div>
+
+        <div id="stats" class="stats-grid" style="display: none;">
+            <div class="stat-card">
+                <div class="stat-value" id="totalHours">0</div>
+                <div class="stat-label">Total Hours Recorded</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalSamples">0</div>
+                <div class="stat-label">Position Samples</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="computerPercent">0h</div>
+                <div class="stat-label">At Computer</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="inRoomPercent">0h</div>
+                <div class="stat-label">In Room</div>
+            </div>
+        </div>
+
+        <div id="charts" class="chart-grid" style="display: none;">
+            <div class="chart-container full-width">
+                <h3 class="chart-title">15-Minute Activity Blocks</h3>
+                <p>
+                    These boxes represent each 15-minute chunk from 5am to 11pm.
+                    Click on one to jump to that point in the <b>position tracker below</b>.
+                </p>
+                <br>
+                <p>
+                    If I was visible to the camera at all in that time period, then the cell will be colored.
+                    If I was at my computer at all in that period then it will be <b><span style="color: rgba(102, 126, 234)">blue</span></b>.
+                </p>
+                <div>
+                    <canvas id="quarterHourChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h3 class="chart-title">Position Tracker</h3>
+                <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <button id="playPauseButton" onclick="togglePlayPause()">▶ Play</button>
+                    <button onclick="resetPositionAnimation()">⏮ Reset</button>
+                    <span id="animationProgress" style="font-size: 0.9em; color: #666; margin-left: auto; min-width: 250px; text-align: right;">0 / 0</span>
+                </div>
+                <div style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                    <label for="timelineScrubber" style="font-size: 0.9em; color: #666;">Timeline:</label>
+                    <input type="range" id="timelineScrubber" min="0" max="0" value="0"
+                           oninput="scrubToPosition(parseInt(this.value))" style="flex: 1;">
+                </div>
+                <div style="position: relative; width: 100%; max-width: 800px; margin: 0 auto;">
+                    <canvas id="positionChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3 class="chart-title">Activity Distribution</h3>
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rawData = null;
+        let filteredData = null;
+        let charts = {};
+        let backgroundImage = null;
+
+        // Animation control variables
+        let currentAnimationIndex = 0;
+        let animationId = null;
+
+        // Load background image
+        const img = new Image();
+        img.src = 'average_apt_image.png';
+        img.onload = function() {
+            backgroundImage = img;
+            // Redraw position chart if it exists
+            if (charts.position) {
+                charts.position.update();
+            }
+        };
+
+        // Automatically load data from simplified.json on page load
+        window.addEventListener('load', function() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+
+            fetch('simplified.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load simplified.json');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    rawData = data;
+
+                    // Extract unique dates from the data
+                    const dateSet = new Set();
+                    Object.keys(rawData).forEach(timebin => {
+                        if (timebin && timebin.includes('T')) {
+                            const dateStr = timebin.split('T')[0]; // Get "2025-01-31" part
+                            if (dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+                                dateSet.add(dateStr);
+                            }
+                        }
+                    });
+
+                    // Sort dates in descending order (most recent first)
+                    const sortedDates = Array.from(dateSet).sort().reverse();
+
+                    // Populate dropdown
+                    const selectElement = document.getElementById('selectedDate');
+                    selectElement.innerHTML = '';
+                    sortedDates.forEach(date => {
+                        const option = document.createElement('option');
+                        option.value = date;
+                        // Format as "January 31, 2025"
+                        const dateObj = new Date(date + 'T00:00:00');
+                        option.textContent = dateObj.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+                        selectElement.appendChild(option);
+                    });
+
+                    // Set to January 28, 2026 if available, otherwise most recent date
+                    const defaultDate = '2026-01-28';
+                    selectElement.value = sortedDates.includes(defaultDate) ? defaultDate : sortedDates[0];
+
+                    // Add change listener to automatically update on date selection
+                    selectElement.addEventListener('change', applyFilters);
+
+                    // Filter to show only the most recent date initially
+                    applyFilters();
+
+                    document.getElementById('loading').style.display = 'none';
+                })
+                .catch(error => {
+                    showError('Error loading data: ' + error.message);
+                    document.getElementById('loading').style.display = 'none';
+                });
+        });
+
+        function parseTimebin(timebin) {
+            // Convert "2025-06-21T14-15" or "2026-01-28T23-0" to Date object
+            try {
+                const parts = timebin.split('T');
+                if (parts.length !== 2) {
+                    console.error('Invalid timebin format:', timebin);
+                    return null;
+                }
+                const datePart = parts[0];
+                const timePart = parts[1].split('-');
+                if (timePart.length < 2) {
+                    console.error('Invalid time part in timebin:', timebin);
+                    return null;
+                }
+                // Pad single digit hours/minutes with leading zero
+                const hour = timePart[0].padStart(2, '0');
+                const minute = timePart[1].padStart(2, '0');
+                const date = new Date(`${datePart}T${hour}:${minute}:00`);
+                if (isNaN(date.getTime())) {
+                    console.error('Invalid date created from timebin:', timebin);
+                    return null;
+                }
+                return date;
+            } catch (e) {
+                console.error('Error parsing timebin:', timebin, e);
+                return null;
+            }
+        }
+
+        function applyFilters() {
+            if (!rawData) {
+                showError('Please load data first');
+                return;
+            }
+
+            const selectedDateStr = document.getElementById('selectedDate').value;
+            if (!selectedDateStr) {
+                showError('Please select a date');
+                return;
+            }
+
+            // Filter by exact date string match and time range (5am - 10pm)
+            filteredData = {};
+            Object.entries(rawData).forEach(([timebin, value]) => {
+                const timebinDate = timebin.split('T')[0]; // Extract date part
+                if (timebinDate === selectedDateStr) {
+                    const date = parseTimebin(timebin);
+                    if (date) {
+                        const hour = date.getHours();
+                        // Only include data between 5am (5) and 10pm (22)
+                        if (hour >= 5 && hour <= 22) {
+                            filteredData[timebin] = value;
+                        }
+                    }
+                }
+            });
+
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            if (!filteredData || Object.keys(filteredData).length === 0) {
+                showError('No data available for the selected date');
+                return;
+            }
+
+            document.getElementById('stats').style.display = 'grid';
+            document.getElementById('charts').style.display = 'grid';
+
+            calculateStats();
+            createCharts();
+        }
+
+        function calculateStats() {
+            const entries = Object.values(filteredData);
+            const totalBins = entries.length;
+            const atComputerCount = entries.filter(e => e.was_at_desk).length;
+            const inRoomCount = entries.filter(e => !e.was_at_desk && e.positions && e.positions.length > 0).length;
+
+            // Calculate session lengths
+            let sessions = [];
+            let currentSession = 0;
+            entries.forEach((entry, i) => {
+                if (entry.was_at_desk) {
+                    currentSession++;
+                } else {
+                    if (currentSession > 0) {
+                        sessions.push(currentSession);
+                        currentSession = 0;
+                    }
+                }
+            });
+            if (currentSession > 0) sessions.push(currentSession);
+
+            const totalHours = (totalBins * 15 / 60).toFixed(1);
+            const computerHours = (atComputerCount * 15 / 60).toFixed(1);
+            const inRoomHours = (inRoomCount * 15 / 60).toFixed(1);
+
+            let totalSamples = 0;
+            Object.entries(filteredData).forEach(([key, value]) => {
+                if (value.positions?.length > 0) {
+                    totalSamples += value.total_samples;
+                }
+            })
+
+            document.getElementById('totalHours').textContent = totalHours;
+            document.getElementById('totalSamples').textContent = totalSamples;
+            document.getElementById('computerPercent').textContent = computerHours + 'h';
+            document.getElementById('inRoomPercent').textContent = inRoomHours + 'h';
+        }
+
+        function createCharts() {
+            // Stop any running animation
+            if (animationId) {
+                clearTimeout(animationId);
+                animationId = null;
+            }
+            currentAnimationIndex = 0;
+
+            // Reset play/pause button
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '▶ Play';
+            }
+
+            // Clear animated indices and images
+            if (window.animatedIndices) {
+                window.animatedIndices.clear();
+            }
+            window.animatedImages = [];
+
+            // Destroy existing charts using Chart.js registry
+            const canvasIds = ['pieChart', 'quarterHourChart', 'positionChart'];
+            canvasIds.forEach(id => {
+                const existingChart = Chart.getChart(id);
+                if (existingChart) {
+                    existingChart.destroy();
+                }
+            });
+            charts = {};
+
+            const sortedData = Object.entries(filteredData)
+                .filter(([timebin]) => {
+                    const date = parseTimebin(timebin);
+                    return date !== null;
+                })
+                .sort((a, b) => {
+                    const dateA = parseTimebin(a[0]);
+                    const dateB = parseTimebin(b[0]);
+                    return dateA - dateB;
+                });
+
+            // Pie Chart - Activity Distribution
+            // Calculate total possible 15-minute blocks (5am to 10pm = 18 hours * 4 blocks/hour = 72 blocks)
+            const totalPossibleBlocks = 18 * 4;
+            const actualDataCount = sortedData.length;
+            const noDataCount = totalPossibleBlocks - actualDataCount;
+
+            const atComputerCount = sortedData.filter(([, v]) => v.was_at_desk).length;
+            const inRoomCount = sortedData.filter(([, v]) =>
+                !v.was_at_desk && v.positions && v.positions.length > 0
+            ).length;
+            const awayCount = sortedData.filter(([, v]) =>
+                !v.was_at_desk && (!v.positions || v.positions.length === 0)
+            ).length;
+
+            charts.pie = new Chart(document.getElementById('pieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['At Computer', 'In Room', 'Away', 'No Data'],
+                    datasets: [{
+                        data: [atComputerCount, inRoomCount, awayCount, noDataCount],
+                        backgroundColor: [
+                            'rgba(102, 126, 234, 0.8)',
+                            'rgba(255, 205, 86, 0.8)',
+                            'rgba(200, 200, 200, 0.8)',
+                            'rgba(100, 100, 100, 0.5)'
+                        ],
+                        borderColor: [
+                            'rgb(102, 126, 234)',
+                            'rgb(255, 205, 86)',
+                            'rgb(200, 200, 200)',
+                            'rgb(100, 100, 100)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed;
+                                    const hours = value * 0.25;
+                                    return `${label}: ${hours} hours`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // 15-Minute Activity Blocks Chart
+            // Create a map of all existing data
+            const dataMap = {};
+            sortedData.forEach(([timebin, value]) => {
+                const date = parseTimebin(timebin);
+                if (!date) return;
+
+                const hour = date.getHours();
+                const minute = date.getMinutes();
+                const key = `${hour}-${minute}`;
+
+                let state = 0; // Away
+                if (value.was_at_desk) {
+                    state = 2; // At Computer
+                } else if (value.positions && value.positions.length > 0) {
+                    state = 1; // In Room
+                }
+
+                dataMap[key] = state;
+            });
+
+            // Create all possible 15-minute blocks from 5am to 10pm
+            const quarterHourData = [];
+            for (let hour = 5; hour <= 22; hour++) {
+                for (let minute = 0; minute < 60; minute += 15) {
+                    const key = `${hour}-${minute}`;
+                    const state = dataMap.hasOwnProperty(key) ? dataMap[key] : -1; // -1 = no data
+
+                    quarterHourData.push({
+                        x: hour+0.5,
+                        y: minute + 7.5,
+                        v: state,
+                        originalHour: hour,
+                        originalMinute: minute
+                    });
+                }
+            }
+
+            charts.quarterHour = new Chart(document.getElementById('quarterHourChart'), {
+                type: 'matrix',
+                data: {
+                    datasets: [{
+                        label: '15-Minute Blocks',
+                        data: quarterHourData,
+                        backgroundColor(context) {
+                            const value = context.dataset.data[context.dataIndex].v;
+                            if (value === 2) return 'rgba(102, 126, 234, 0.8)'; // At Computer (Blue)
+                            if (value === 1) return 'rgba(255, 205, 86, 0.8)'; // In Room (Yellow)
+                            if (value === 0) return 'rgba(200, 200, 200, 0.3)'; // Away (Light Gray)
+                            return 'rgba(100, 100, 100, 0.5)'; // No Data (Darker Gray)
+                        },
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        borderWidth: 2,
+                        width: ({chart}) => (chart.chartArea || {}).width / 18 - 2,
+                        height: ({chart}) => (chart.chartArea || {}).height / 4 - 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 3.5,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            min: 5,
+                            max: 23,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    return value + ':00';
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Hour of Day'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            min: 0,
+                            max: 60,
+                            ticks: {
+                                stepSize: 15,
+                                callback: function(value) {
+                                    return ':' + String(value).padStart(2, '0');
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Minute'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                generateLabels: function(chart) {
+                                    return [
+                                        {
+                                            text: 'At Computer',
+                                            fillStyle: 'rgba(102, 126, 234, 0.8)',
+                                            strokeStyle: 'rgba(102, 126, 234, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'In Room',
+                                            fillStyle: 'rgba(255, 205, 86, 0.8)',
+                                            strokeStyle: 'rgba(255, 205, 86, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'Away',
+                                            fillStyle: 'rgba(200, 200, 200, 0.3)',
+                                            strokeStyle: 'rgba(200, 200, 200, 1)',
+                                            lineWidth: 2
+                                        },
+                                        {
+                                            text: 'No Data',
+                                            fillStyle: 'rgba(100, 100, 100, 0.5)',
+                                            strokeStyle: 'rgba(100, 100, 100, 1)',
+                                            lineWidth: 2
+                                        }
+                                    ];
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title() {
+                                    return '';
+                                },
+                                label(context) {
+                                    const v = context.dataset.data[context.dataIndex];
+                                    const status = v.v === 2 ? 'At Computer' :
+                                                  v.v === 1 ? 'In Room' :
+                                                  v.v === 0 ? 'Away' : 'No Data';
+                                    const hourStr = String(v.originalHour).padStart(2, '0');
+                                    const minStr = String(v.originalMinute).padStart(2, '0');
+                                    return `${hourStr}:${minStr} - ${status}`;
+                                }
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const dataIndex = elements[0].index;
+                            const clickedBlock = quarterHourData[dataIndex];
+
+                            // Find the first position that matches this time block
+                            if (window.positionTimeline) {
+                                for (let i = 0; i < window.positionTimeline.length; i++) {
+                                    const pos = window.positionTimeline[i];
+                                    const posTime = pos.time;
+                                    if (posTime) {
+                                        const posHour = posTime.getHours();
+                                        const posMinute = posTime.getMinutes();
+
+                                        // Check if position falls within this 15-minute block
+                                        if (posHour === clickedBlock.originalHour && posMinute === clickedBlock.originalMinute) {
+                                            scrubToPosition(i);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Position Scatter Plot with Background Image and Animation
+            const backgroundImagePlugin = {
+                id: 'backgroundImage',
+                beforeDraw: (chart) => {
+                    if (chart.canvas.id === 'positionChart') {
+                        const ctx = chart.ctx;
+                        const chartArea = chart.chartArea;
+
+                        // Draw apartment background
+                        if (backgroundImage) {
+                            ctx.save();
+                            ctx.globalAlpha = 0.5; // Make image semi-transparent
+                            ctx.drawImage(
+                                backgroundImage,
+                                chartArea.left,
+                                chartArea.top,
+                                chartArea.right - chartArea.left,
+                                chartArea.bottom - chartArea.top
+                            );
+                            ctx.restore();
+                        }
+
+                        // Draw animated position images
+                        if (window.animatedImages && window.animatedImages.length > 0) {
+                            ctx.save();
+
+                            // Get scale factors
+                            const xScale = chart.scales.x;
+                            const yScale = chart.scales.y;
+
+                            // Only show the last 30 images with fade effect
+                            const maxImages = 30;
+                            const imagesToShow = window.animatedImages.slice(-maxImages);
+
+                            imagesToShow.forEach((imgData, index) => {
+                                if (imgData.image) {
+                                    const imgWidth = 80;
+                                    const imgHeight = 80;
+
+                                    // Convert data coordinates to pixel coordinates
+                                    const pixelX = xScale.getPixelForValue(imgData.x);
+                                    const pixelY = yScale.getPixelForValue(imgData.y);
+
+                                    // Calculate fade: oldest = 0.1, newest = 1.0
+                                    const fadeRatio = (index + 1) / imagesToShow.length;
+                                    const opacity = 0.1 + (fadeRatio * 0.9);
+
+                                    // Draw image centered at position
+                                    ctx.globalAlpha = opacity;
+                                    ctx.drawImage(
+                                        imgData.image,
+                                        pixelX - imgWidth / 2,
+                                        pixelY - imgHeight / 2,
+                                        imgWidth,
+                                        imgHeight
+                                    );
+                                }
+                            });
+
+                            ctx.restore();
+                        }
+                    }
+                }
+            };
+
+            // Build position timeline with timestamps and images
+            const positionTimeline = [];
+
+            sortedData.forEach(([timebin, value]) => {
+                const timestamp = parseTimebin(timebin);
+                if (timestamp && value.positions && Array.isArray(value.positions)) {
+                    value.positions.forEach(pos => {
+                        if (pos.x !== undefined && pos.y !== undefined) {
+                            const entry = {
+                                x: pos.x,
+                                y: pos.y,
+                                width: pos.width,
+                                height: pos.height,
+                                time: timestamp,
+                                timebin: timebin,
+                                image: null,
+                                imageData: pos.image,
+                                is_at_desk: pos.is_at_desk || false,
+                                is_facing_monitor: pos.is_facing_monitor || false
+                            };
+
+                            // If there's an image, load it
+                            if (pos.image) {
+                                // Handle different image data types
+                                let imageSrc = null;
+                                if (typeof pos.image === 'string') {
+                                    // String - could be base64 or URL
+                                    if (pos.image.startsWith('data:image')) {
+                                        // Already has data URI prefix
+                                        imageSrc = pos.image;
+                                    } else if (pos.image.startsWith('http://') || pos.image.startsWith('https://')) {
+                                        // URL
+                                        imageSrc = pos.image;
+                                    } else {
+                                        // Assume it's raw base64 data
+                                        // Check if it starts with common image signatures
+                                        if (pos.image.startsWith('/9j/') || pos.image.startsWith('iVBOR')) {
+                                            const format = pos.image.startsWith('/9j/') ? 'jpeg' : 'png';
+                                            imageSrc = `data:image/${format};base64,${pos.image}`;
+                                        } else {
+                                            // Default to JPEG if we can't detect
+                                            imageSrc = `data:image/jpeg;base64,${pos.image}`;
+                                        }
+                                    }
+                                } else if (pos.image instanceof Blob || pos.image instanceof File) {
+                                    // Blob or File object
+                                    imageSrc = URL.createObjectURL(pos.image);
+                                } else if (pos.image && typeof pos.image === 'object' && pos.image.data) {
+                                    // Object with data property
+                                    imageSrc = pos.image.data;
+                                }
+
+                                // Only load if we have a valid source
+                                if (imageSrc) {
+                                    const img = new Image();
+                                    img.crossOrigin = 'anonymous';
+                                    img.onload = () => {
+                                        entry.image = img;
+                                    };
+                                    img.src = imageSrc;
+                                }
+                            }
+
+                            positionTimeline.push(entry);
+                        }
+                    });
+                }
+            });
+
+            // Sort by time
+            positionTimeline.sort((a, b) => a.time - b.time);
+
+            // Store timeline globally for animation controls
+            window.positionTimeline = positionTimeline;
+            window.animatedIndices = new Set();
+            window.animatedImages = []; // Store images to display
+
+            // Create single dataset for all positions
+            const allPositions = [];
+
+            positionTimeline.forEach((p, index) => {
+                const point = {
+                    x: p.x,
+                    y: p.y,
+                    timebin: p.timebin,
+                    originalIndex: index
+                };
+                allPositions.push(point);
+            });
+
+            charts.position = new Chart(document.getElementById('positionChart'), {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Trail',
+                            data: [],
+                            backgroundColor: 'rgba(255, 99, 132, 0.3)',
+                            borderColor: 'rgba(255, 99, 132, 0.5)',
+                            pointRadius: 2,
+                            showLine: true,
+                            tension: 0.4,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Current Position',
+                            data: [],
+                            backgroundColor: 'rgba(255, 255, 255, 1)',
+                            borderColor: 'rgba(0, 0, 0, 0.8)',
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'All Positions',
+                            data: allPositions,
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderColor: 'rgba(102, 126, 234, 0.2)',
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1280 / 720,
+                    animation: false,
+                    scales: {
+                        x: {
+                            min: 0,
+                            max: 1280,
+                            title: {
+                                display: true,
+                                text: 'X Position'
+                            }
+                        },
+                        y: {
+                            min: 0,
+                            max: 720,
+                            title: {
+                                display: true,
+                                text: 'Y Position'
+                            },
+                            reverse: true
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title(context) {
+                                    const dataPoint = context[0].raw;
+                                    if (dataPoint && dataPoint.timebin) {
+                                        const date = parseTimebin(dataPoint.timebin);
+                                        if (date) {
+                                            return date.toLocaleString();
+                                        }
+                                    }
+                                    return '';
+                                },
+                                label(context) {
+                                    const dataPoint = context.raw;
+                                    return [
+                                        `x: ${Math.round(dataPoint.x)}`,
+                                        `y: ${Math.round(dataPoint.y)}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [backgroundImagePlugin]
+            });
+
+            // Update progress display and scrubber
+            document.getElementById('animationProgress').textContent = `0 / ${positionTimeline.length}`;
+            const scrubber = document.getElementById('timelineScrubber');
+            if (scrubber) {
+                scrubber.max = positionTimeline.length;
+                scrubber.value = 0;
+            }
+        }
+
+        function togglePlayPause() {
+            if (animationId) {
+                // Currently playing, so pause
+                stopPositionAnimation();
+            } else {
+                // Currently paused, so play
+                startPositionAnimation();
+            }
+        }
+
+        function startPositionAnimation() {
+            if (!window.positionTimeline || window.positionTimeline.length === 0) {
+                showError('No position data available to animate');
+                return;
+            }
+
+            if (animationId) {
+                // Already running
+                return;
+            }
+
+            // Update button to show pause state
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '⏸ Pause';
+            }
+
+            animatePosition();
+        }
+
+        function animatePosition() {
+            if (currentAnimationIndex < window.positionTimeline.length) {
+                scrubToPosition(currentAnimationIndex);
+                currentAnimationIndex++;
+                animationId = setTimeout(animatePosition, 50); // 50ms frame rate
+            } else {
+                // Animation complete
+                animationId = null;
+                // Update button back to play state
+                const button = document.getElementById('playPauseButton');
+                if (button) {
+                    button.textContent = '▶ Play';
+                }
+            }
+        }
+
+        function scrubToPosition(index) {
+            if (!window.positionTimeline || window.positionTimeline.length === 0) return;
+
+            // Clamp index to valid range
+            index = Math.max(0, Math.min(index, window.positionTimeline.length));
+
+            // Update current animation index
+            currentAnimationIndex = index;
+
+            // Clear animated indices and rebuild for positions up to index
+            if (window.animatedIndices) {
+                window.animatedIndices.clear();
+            }
+            const trail = [];
+            const images = [];
+
+            // Only show last 30 points in trail
+            const maxTrailPoints = 30;
+            const startIndex = Math.max(0, index - maxTrailPoints);
+
+            for (let i = startIndex; i < index; i++) {
+                const pos = window.positionTimeline[i];
+                trail.push({x: pos.x, y: pos.y});
+                window.animatedIndices.add(i);
+
+                // Add image if available
+                if (pos.image) {
+                    images.push({
+                        x: pos.x,
+                        y: pos.y,
+                        width: pos.width,
+                        height: pos.height,
+                        image: pos.image
+                    });
+                }
+            }
+
+            // Update animated images for drawing
+            window.animatedImages = images;
+
+            // Update chart datasets
+            charts.position.data.datasets[0].data = trail;
+
+            // Update current position marker
+            if (index > 0) {
+                const currentPos = window.positionTimeline[index - 1];
+                charts.position.data.datasets[1].data = [{x: currentPos.x, y: currentPos.y, timebin: currentPos.timebin}];
+
+                // Update progress display with timestamp
+                const timestamp = currentPos.time ? currentPos.time.toLocaleString() : '';
+                document.getElementById('animationProgress').textContent =
+                    `${index} / ${window.positionTimeline.length} - ${timestamp}`;
+            } else {
+                charts.position.data.datasets[1].data = [];
+                document.getElementById('animationProgress').textContent =
+                    `0 / ${window.positionTimeline.length}`;
+            }
+
+            // Update scrubber position
+            const scrubber = document.getElementById('timelineScrubber');
+            if (scrubber) {
+                scrubber.value = index;
+            }
+
+            // Update chart without animation
+            charts.position.update('none');
+        }
+
+        function stopPositionAnimation() {
+            if (animationId) {
+                clearTimeout(animationId);
+                animationId = null;
+            }
+            // Update button to show play state
+            const button = document.getElementById('playPauseButton');
+            if (button) {
+                button.textContent = '▶ Play';
+            }
+        }
+
+        function resetPositionAnimation() {
+            stopPositionAnimation();
+            window.animatedImages = [];
+            scrubToPosition(0);
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
